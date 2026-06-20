@@ -787,15 +787,20 @@ def obtenir_pichichi_real(df_resultats_display, col_pichichi, col_gols):
     if taula.empty:
         return "Pendent", "Pendent"
 
-    taula = taula.sort_values(col_gols, ascending=False).reset_index(drop=True)
+    # Busquem el número màxim de gols de la taula
+    max_gols = taula[col_gols].max()
 
-    jugador = taula.iloc[0][col_pichichi]
-    gols = taula.iloc[0][col_gols]
-    
-    if pd.isna(gols):
+    # Si no hi ha cap gol registrat o és 0, ho tractem com a "Pendent" pel bàner
+    if pd.isna(max_gols) or max_gols <= 0:
         return "Pendent", "Pendent"
 
-    return jugador, str(int(gols))
+    # Filtrem només els jugadors que tinguin els gols màxims (per si hi ha empats)
+    jugadors_top = taula[taula[col_gols] == max_gols][col_pichichi].tolist()
+    
+    # Els ajuntem tots amb un punt de separació
+    jugador = " · ".join(jugadors_top)
+
+    return jugador, str(int(max_gols))
 
 
 def obtenir_prediccions_fase(df_j, prefix, quantitat):
@@ -984,12 +989,13 @@ st.markdown(
         box-sizing: border-box;
         overflow: hidden;
         width: 100%;
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        transition: all 0.3s ease-in-out !important; 
     }}
     
     .card:hover {{
-        transform: translateY(-6px);
-        box-shadow: 0px 12px 25px rgba(0,0,0,0.3);
+        transform: translateY(-8px) scale(1.02) !important;
+        box-shadow: 0px 15px 30px rgba(0,0,0,0.4) !important;
+        cursor: pointer !important;
     }}
 
     .gold {{
@@ -1489,11 +1495,12 @@ r2.markdown(
 
 pichichi_subtext = f"{gols_pichichi} gols" if gols_pichichi != "Pendent" else "Pendent"
 
+# Hem canviat l'estil intern de l'h1 perquè el text s'adapti automàticament a diferents línies si hi ha empats
 r3.markdown(
     f"""
     <div class='card bronze'>
         <h3>⚽ Bota d'Or</h3>
-        <h1 style='font-size:25px'>{pichichi_real}</h1>
+        <h1 style='font-size: clamp(16px, 2.5vw, 24px); white-space: normal; line-height: 1.2;'>{pichichi_real}</h1>
         <p>{pichichi_subtext}</p>
     </div>
     """,
