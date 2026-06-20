@@ -1274,7 +1274,7 @@ if jugador is not None:
 
         # Gràfic vertical modern per la fitxa
         bars_cat = alt.Chart(punts_categoria).mark_bar(
-            cornerRadiusTop=6,
+            cornerRadiusEnd=6,
             size=25
         ).encode(
             x=alt.X(
