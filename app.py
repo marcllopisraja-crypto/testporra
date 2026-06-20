@@ -18,6 +18,7 @@ st.set_page_config(
 
 EXCEL_FILE = "Porra_Mundial_Final_Definitiva.xlsx"
 BACKGROUND_IMAGE = "fifa-Trionda.jpg"
+LOGO_IMAGE = "Logo RGB fondo transparente letra negra Constraula.png"
 PREU_PARTICIPACIO = 5
 
 SNAPSHOT_CURRENT_FILE = "ranking_snapshot_current.csv"
@@ -975,12 +976,29 @@ st.markdown(
         margin-bottom: 25px;
     }}
 
+    /* CLASSES NOVES DE GRAELLA PER MANTENIR ALTURES IGUALS */
+    .card-grid-3 {{
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.5rem;
+        align-items: stretch;
+        margin-bottom: 1rem;
+    }}
+    
+    .card-grid-4 {{
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1.5rem;
+        align-items: stretch;
+        margin-bottom: 1rem;
+    }}
+
     .card {{
         padding: 18px;
         border-radius: 18px;
         text-align: center;
         box-shadow: 0px 4px 20px rgba(0,0,0,0.18);
-        height: 100%; /* Canvi clau per evitar que la targeta s'amagui per sota */
+        height: 100% !important; /* Això força que s'estirin per igual */
         min-height: 178px;
         display: flex;
         flex-direction: column;
@@ -989,6 +1007,7 @@ st.markdown(
         box-sizing: border-box;
         overflow: hidden;
         width: 100%;
+        margin: 0;
         transition: all 0.3s ease-in-out !important; 
     }}
     
@@ -1071,10 +1090,12 @@ st.markdown(
             border-radius: 16px;
         }}
 
+        .card-grid-3, .card-grid-4 {{
+            grid-template-columns: 1fr;
+        }}
+
         .card {{
-            height: auto;
             min-height: 140px;
-            margin-bottom: 12px;
         }}
 
         .card h3 {{
@@ -1114,51 +1135,45 @@ te_departaments = "Departament" in df_ranking.columns and not df_departaments.em
 
 
 # --------------------------------------------------
-# TÍTOL
+# TÍTOL I LOGO EMPRESA
 # --------------------------------------------------
-st.markdown('<p class="title">🏆 PORRA MUNDIAL</p>', unsafe_allow_html=True)
-st.markdown(
-    '<p class="subtitle">Classificació en viu, moviment respecte l’última actualització, competició per departaments i resultats reals</p>',
-    unsafe_allow_html=True
-)
+col_titol, col_logo = st.columns([4, 1])
+
+with col_titol:
+    st.markdown('<p class="title">🏆 PORRA MUNDIAL</p>', unsafe_allow_html=True)
+    st.markdown(
+        '<p class="subtitle">Classificació en viu, moviment respecte l’última actualització, competició per departaments i resultats reals</p>',
+        unsafe_allow_html=True
+    )
+
+with col_logo:
+    if os.path.exists(LOGO_IMAGE):
+        # Aprofitem que Streamlit centra bé les imatges a les columnes petites
+        st.image(LOGO_IMAGE, use_container_width=True)
 
 
 # --------------------------------------------------
 # INFO PRINCIPAL
 # --------------------------------------------------
-info1, info2, info3 = st.columns(3, gap="small")
-
-info1.markdown(
-    f"""
+html_info = f"""
+<div class='card-grid-3'>
     <div class='card darkcard'>
         <h3>🕒 Dades actualitzades</h3>
         <h1>{data_actualitzacio}</h1>
     </div>
-    """,
-    unsafe_allow_html=True
-)
-
-info2.markdown(
-    f"""
     <div class='card greencard'>
         <h3>🎁 Premi guanyador</h3>
         <h1>{premi_guanyador} €</h1>
         <p>{num_participants} participants x {PREU_PARTICIPACIO} €</p>
     </div>
-    """,
-    unsafe_allow_html=True
-)
-
-info3.markdown(
-    f"""
     <div class='card bluecard'>
         <h3>👥 Participants</h3>
         <h1>{num_participants}</h1>
         <p>porres registrades</p>
     </div>
-    """,
-    unsafe_allow_html=True
-)
+</div>
+"""
+st.markdown(html_info, unsafe_allow_html=True)
 
 
 # --------------------------------------------------
@@ -1186,32 +1201,29 @@ st.subheader("🥇 TOP 3 General")
 
 top3 = df_ranking.head(3)
 
-c1, c2, c3 = st.columns(3, gap="small")
-
 top_cards = [
-    ("🥇", "gold", top3.iloc[0]),
-    ("🥈", "silver", top3.iloc[1]),
-    ("🥉", "bronze", top3.iloc[2]),
+    ("🥇", "gold", top3.iloc[0] if len(top3) > 0 else None),
+    ("🥈", "silver", top3.iloc[1] if len(top3) > 1 else None),
+    ("🥉", "bronze", top3.iloc[2] if len(top3) > 2 else None),
 ]
 
-for col, (medalla, classe, row) in zip([c1, c2, c3], top_cards):
-    subtext = "punts"
+html_top3 = "<div class='card-grid-3'>"
+for medalla, classe, row in top_cards:
+    if row is not None:
+        subtext = "punts"
+        if "Departament" in row.index:
+            subtext = f"{row['Departament']}"
+        evolucio = row["Evolució"] if "Evolució" in row.index else ""
 
-    if "Departament" in row.index:
-        subtext = f"{row['Departament']}"
-
-    evolucio = row["Evolució"] if "Evolució" in row.index else ""
-
-    col.markdown(
-        f"""
+        html_top3 += f"""
         <div class='card {classe}'>
             <h3>{medalla} {row["Participant"]}</h3>
             <h1>{float(row["Punts"]):.1f}</h1>
             <p>{subtext} · {evolucio}</p>
         </div>
-        """,
-        unsafe_allow_html=True
-    )
+        """
+html_top3 += "</div>"
+st.markdown(html_top3, unsafe_allow_html=True)
 
 
 # --------------------------------------------------
@@ -1388,23 +1400,23 @@ if te_departaments:
         st.write(f"### 🥇 TOP 3 · {departament_sel}")
 
         dep_top = df_dep_individual.head(3)
-        dep_cols = st.columns(3, gap="small")
+        html_top_dep = "<div class='card-grid-3'>"
         medalles = ["🥇", "🥈", "🥉"]
         classes = ["gold", "silver", "bronze"]
 
         for i in range(min(3, len(dep_top))):
-            evolucio_dep = dep_top.iloc[i]["Evolució"] if "Evolució" in dep_top.columns else ""
+            row = dep_top.iloc[i]
+            evolucio_dep = row["Evolució"] if "Evolució" in row.index else ""
 
-            dep_cols[i].markdown(
-                f"""
-                <div class='card {classes[i]}'>
-                    <h3>{medalles[i]} {dep_top.iloc[i]["Participant"]}</h3>
-                    <h1>{float(dep_top.iloc[i]["Punts"]):.1f}</h1>
-                    <p>{departament_sel} · {evolucio_dep}</p>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
+            html_top_dep += f"""
+            <div class='card {classes[i]}'>
+                <h3>{medalles[i]} {row["Participant"]}</h3>
+                <h1>{float(row["Punts"]):.1f}</h1>
+                <p>{departament_sel} · {evolucio_dep}</p>
+            </div>
+            """
+        html_top_dep += "</div>"
+        st.markdown(html_top_dep, unsafe_allow_html=True)
 
         st.write(f"### 📊 Classificació interna · {departament_sel}")
         mostrar_taula_ranking(df_dep_individual)
@@ -1487,50 +1499,30 @@ pichichi_real, gols_pichichi = obtenir_pichichi_real(
 
 st.write("### 🏟️ Resum oficial")
 
-r1, r2, r3, r4 = st.columns(4, gap="small")
+pichichi_subtext = f"{gols_pichichi} gols" if gols_pichichi != "Pendent" else "Pendent"
 
-r1.markdown(
-    f"""
+html_resum = f"""
+<div class='card-grid-4'>
     <div class='card gold'>
         <h3>🏆 Campió</h3>
         <h1 style='font-size:28px'>{campio_real}</h1>
     </div>
-    """,
-    unsafe_allow_html=True
-)
-
-r2.markdown(
-    f"""
     <div class='card silver'>
         <h3>⭐ MVP</h3>
         <h1 style='font-size:28px'>{mvp_real}</h1>
     </div>
-    """,
-    unsafe_allow_html=True
-)
-
-pichichi_subtext = f"{gols_pichichi} gols" if gols_pichichi != "Pendent" else "Pendent"
-
-r3.markdown(
-    f"""
     <div class='card bronze'>
         <h3>⚽ Bota d'Or</h3>
         <h1 style='font-size: clamp(16px, 2.5vw, 24px); white-space: normal; line-height: 1.2;'>{pichichi_real}</h1>
         <p>{pichichi_subtext}</p>
     </div>
-    """,
-    unsafe_allow_html=True
-)
-
-r4.markdown(
-    f"""
     <div class='card bluecard'>
         <h3>🏁 Resultat final</h3>
         <h1 style='font-size:28px'>{resultat_final_real}</h1>
     </div>
-    """,
-    unsafe_allow_html=True
-)
+</div>
+"""
+st.markdown(html_resum, unsafe_allow_html=True)
 
 
 # --------------------------------------------------
@@ -1627,7 +1619,7 @@ else:
 
 
 # --------------------------------------------------
-# BOTA D'OR (TAULA LLISTAT)
+# BOTA D'OR (TAULA LLISTAT SENSE SCROLL)
 # --------------------------------------------------
 st.write("### ⚽ Bota d'Or")
 
@@ -1640,7 +1632,6 @@ if COL_PICHICHI in df_resultats_display.columns and COL_GOLS in df_resultats_dis
         errors="coerce"
     )
 
-    # Nova regla: No filtrem si els gols són < 1. S'ensenya tothom que tingui un nom valid.
     taula_pichichi = taula_pichichi[
         (taula_pichichi[COL_PICHICHI] != "") &
         (~taula_pichichi[COL_PICHICHI].str.lower().isin(["nan", "nat", "pendent"]))
@@ -1653,15 +1644,17 @@ if COL_PICHICHI in df_resultats_display.columns and COL_GOLS in df_resultats_dis
         })
     else:
         taula_pichichi = taula_pichichi.sort_values(COL_GOLS, ascending=False).reset_index(drop=True)
-        # Els jugadors sense número els hi posem un 0 perquè no quedin lletjos ("<NA>")
         taula_pichichi[COL_GOLS] = taula_pichichi[COL_GOLS].fillna(0).astype("Int64")
-        # Canviem el nom de la columna original només per visualitzar
         taula_pichichi = taula_pichichi.rename(columns={COL_PICHICHI: "Jugador"})
+
+    # Càlcul d'alçada dinàmica: 35px per fila + uns 40px extres de capçalera
+    altura_taula_pichichi = (len(taula_pichichi) * 35) + 40
 
     st.dataframe(
         taula_pichichi,
         use_container_width=True,
-        hide_index=True
+        hide_index=True,
+        height=altura_taula_pichichi # Fixa l'alçada per evitar l'scroll
     )
 else:
     taula_pichichi = pd.DataFrame({
