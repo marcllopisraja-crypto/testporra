@@ -980,7 +980,7 @@ st.markdown(
         border-radius: 18px;
         text-align: center;
         box-shadow: 0px 4px 20px rgba(0,0,0,0.18);
-        height: 178px;
+        height: 100%; /* Canvi clau per evitar que la targeta s'amagui per sota */
         min-height: 178px;
         display: flex;
         flex-direction: column;
@@ -1332,7 +1332,23 @@ if jugador is not None:
         c2.write(f"⭐ MVP: {valor_o_pendent(df_j['MVP'].values[0])}")
         
         val_bota = valor_o_pendent(df_j['Pichichi'].values[0]) if 'Pichichi' in df_j.columns else "Pendent"
-        c2.write(f"⚽ Bota d'Or: {val_bota}")
+        
+        # BUSQUEM ELS GOLS REALS QUE TÉ AQUEST JUGADOR ARA MATEIX
+        gols_bota_str = ""
+        COL_PICHICHI = "Jugador Pichichi"
+        COL_GOLS = "Gols"
+        if val_bota != "Pendent" and COL_PICHICHI in df_resultats.columns and COL_GOLS in df_resultats.columns:
+            match = df_resultats[df_resultats[COL_PICHICHI].astype(str).str.strip().str.lower() == val_bota.strip().lower()]
+            if not match.empty:
+                g = match.iloc[0][COL_GOLS]
+                if pd.notna(g) and str(g).strip() != "":
+                    gols_bota_str = f" ({int(g)} gols reals)"
+                else:
+                    gols_bota_str = " (0 gols reals)"
+            else:
+                gols_bota_str = " (0 gols reals)"
+
+        c2.write(f"⚽ Bota d'Or: {val_bota}{gols_bota_str}")
 
         mostrar_prediccions_grups_participant(df_j)
         mostrar_prediccions_eliminatoria_participant(df_j)
@@ -1495,7 +1511,6 @@ r2.markdown(
 
 pichichi_subtext = f"{gols_pichichi} gols" if gols_pichichi != "Pendent" else "Pendent"
 
-# Hem canviat l'estil intern de l'h1 perquè el text s'adapti automàticament a diferents línies si hi ha empats
 r3.markdown(
     f"""
     <div class='card bronze'>
