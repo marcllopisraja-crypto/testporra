@@ -664,110 +664,75 @@ def mostrar_taula_departaments(df_dep):
     )
 
 
-def mostrar_grafic_punts(df, color_scheme="blues", altura_minima=950):
+def mostrar_grafic_punts(df, color="#0b70c9", altura_minima=950):
     chart_data = df[["Posició", "Participant", "Punts", "Dif líder"]].copy()
     chart_data = chart_data.sort_values("Punts", ascending=False)
 
-    chart_height = max(altura_minima, len(chart_data) * 40)
+    chart_height = max(altura_minima, len(chart_data) * 36)
 
-    # 1. Barres modernes: vores arrodonides i degradat de color
-    bars = alt.Chart(chart_data).mark_bar(
-        cornerRadiusEnd=6,
-        height=22
-    ).encode(
-        x=alt.X(
-            "Punts:Q", 
-            title="Punts", 
-            scale=alt.Scale(zero=False), 
-            axis=alt.Axis(grid=True, gridColor="#f0f2f6", domain=False)
-        ),
-        y=alt.Y(
-            "Participant:N", 
-            sort="-x", 
-            title=None, 
-            axis=alt.Axis(labelLimit=560, labelFontSize=12, tickSize=0, domain=False)
-        ),
-        color=alt.Color(
-            "Punts:Q", 
-            scale=alt.Scale(scheme=color_scheme), 
-            legend=None
-        ),
-        tooltip=[
-            alt.Tooltip("Posició:Q", title="Posició"),
-            alt.Tooltip("Participant:N", title="Participant"),
-            alt.Tooltip("Punts:Q", title="Punts", format=".1f"),
-            alt.Tooltip("Dif líder:Q", title="Dif. líder", format=".1f")
-        ]
+    chart = (
+        alt.Chart(chart_data)
+        .mark_bar(color=color)
+        .encode(
+            x=alt.X(
+                "Punts:Q",
+                title="Punts",
+                scale=alt.Scale(zero=False)
+            ),
+            y=alt.Y(
+                "Participant:N",
+                sort="-x",
+                title=None,
+                axis=alt.Axis(labelLimit=560, labelFontSize=12)
+            ),
+            tooltip=[
+                alt.Tooltip("Posició:Q", title="Posició"),
+                alt.Tooltip("Participant:N", title="Participant"),
+                alt.Tooltip("Punts:Q", title="Punts", format=".1f"),
+                alt.Tooltip("Dif líder:Q", title="Dif. líder", format=".1f")
+            ]
+        )
+        .properties(height=chart_height)
     )
 
-    # 2. Text amb els punts al final de cada barra
-    text = bars.mark_text(
-        align='left',
-        baseline='middle',
-        dx=5,  # Desplaçament cap a la dreta
-        fontSize=12,
-        fontWeight='bold',
-        color='#334e68'
-    ).encode(
-        text=alt.Text('Punts:Q', format='.1f')
-    )
-
-    # Unim les barres i el text, i traiem la línia negra exterior
-    chart = (bars + text).properties(height=chart_height).configure_view(strokeWidth=0)
-    st.altair_chart(chart, use_container_width=True, theme="streamlit")
+    st.altair_chart(chart, use_container_width=True)
 
 
-def mostrar_grafic_departaments(df_dep, color_scheme="purples"):
+def mostrar_grafic_departaments(df_dep):
     if df_dep.empty:
         return
 
     chart_data = df_dep.copy().sort_values("Mitjana_punts", ascending=False)
     chart_height = max(350, len(chart_data) * 46)
 
-    bars = alt.Chart(chart_data).mark_bar(
-        cornerRadiusEnd=6,
-        height=26
-    ).encode(
-        x=alt.X(
-            "Mitjana_punts:Q",
-            title="Mitjana de punts",
-            scale=alt.Scale(zero=False),
-            axis=alt.Axis(grid=True, gridColor="#f0f2f6", domain=False)
-        ),
-        y=alt.Y(
-            "Departament:N",
-            sort="-x",
-            title=None,
-            axis=alt.Axis(labelLimit=560, labelFontSize=13, tickSize=0, domain=False)
-        ),
-        color=alt.Color(
-            "Mitjana_punts:Q", 
-            scale=alt.Scale(scheme=color_scheme), 
-            legend=None
-        ),
-        tooltip=[
-            alt.Tooltip("Posició:Q", title="Posició"),
-            alt.Tooltip("Departament:N", title="Departament"),
-            alt.Tooltip("Participants:Q", title="Participants"),
-            alt.Tooltip("Mitjana_punts:Q", title="Mitjana punts", format=".1f"),
-            alt.Tooltip("Punts_totals:Q", title="Punts totals", format=".1f"),
-            alt.Tooltip("Líder departament:N", title="Líder departament")
-        ]
-    )
-    
-    text = bars.mark_text(
-        align='left',
-        baseline='middle',
-        dx=5,
-        fontSize=13,
-        fontWeight='bold',
-        color='#334e68'
-    ).encode(
-        text=alt.Text('Mitjana_punts:Q', format='.1f')
+    chart = (
+        alt.Chart(chart_data)
+        .mark_bar(color="#0f9d58")
+        .encode(
+            x=alt.X(
+                "Mitjana_punts:Q",
+                title="Mitjana de punts",
+                scale=alt.Scale(zero=False)
+            ),
+            y=alt.Y(
+                "Departament:N",
+                sort="-x",
+                title=None,
+                axis=alt.Axis(labelLimit=560, labelFontSize=13)
+            ),
+            tooltip=[
+                alt.Tooltip("Posició:Q", title="Posició"),
+                alt.Tooltip("Departament:N", title="Departament"),
+                alt.Tooltip("Participants:Q", title="Participants"),
+                alt.Tooltip("Mitjana_punts:Q", title="Mitjana punts", format=".1f"),
+                alt.Tooltip("Punts_totals:Q", title="Punts totals", format=".1f"),
+                alt.Tooltip("Líder departament:N", title="Líder departament")
+            ]
+        )
+        .properties(height=chart_height)
     )
 
-    chart = (bars + text).properties(height=chart_height).configure_view(strokeWidth=0)
-    st.altair_chart(chart, use_container_width=True, theme="streamlit")
+    st.altair_chart(chart, use_container_width=True)
 
 
 def obtenir_pichichi_real(df_resultats_display, col_pichichi, col_gols):
@@ -925,7 +890,7 @@ img_base64 = carregar_imatge_base64(BACKGROUND_IMAGE)
 if img_base64:
     background_css = f"""
     background-image:
-        linear-gradient(rgba(0,0,0,0.15), rgba(0,0,0,0.35)),
+        linear-gradient(rgba(0,0,0,0.52), rgba(0,0,0,0.72)),
         url("data:image/jpg;base64,{img_base64}");
     background-size: cover;
     background-position: center;
@@ -945,10 +910,7 @@ st.markdown(
     .block-container {{
         padding-top: 2rem;
         padding-bottom: 2rem;
-        background: rgba(255, 255, 255, 0.65); 
-        backdrop-filter: blur(12px); 
-        -webkit-backdrop-filter: blur(12px); 
-        border: 1px solid rgba(255, 255, 255, 0.3);
+        background: rgba(255,255,255,0.92);
         border-radius: 24px;
         margin-top: 24px;
         margin-bottom: 24px;
@@ -984,12 +946,6 @@ st.markdown(
         box-sizing: border-box;
         overflow: hidden;
         width: 100%;
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
-    }}
-    
-    .card:hover {{
-        transform: translateY(-6px);
-        box-shadow: 0px 12px 25px rgba(0,0,0,0.3);
     }}
 
     .gold {{
@@ -1219,7 +1175,7 @@ mostrar_taula_ranking(df_ranking)
 # GRÀFIC GENERAL
 # --------------------------------------------------
 st.subheader("📈 Gràfic general de punts")
-mostrar_grafic_punts(df_ranking, color_scheme="blues", altura_minima=1000)
+mostrar_grafic_punts(df_ranking, color="#0b70c9", altura_minima=1000)
 
 
 # --------------------------------------------------
@@ -1272,46 +1228,21 @@ if jugador is not None:
 
         punts_categoria["Punts"] = punts_categoria["Punts"].fillna(0).round(1)
 
-        # Gràfic vertical modern per la fitxa
-        bars_cat = alt.Chart(punts_categoria).mark_bar(
-            cornerRadiusEnd=6,
-            size=25
-        ).encode(
-            x=alt.X(
-                "Categoria:N", 
-                sort=None, 
-                title=None, 
-                axis=alt.Axis(labelAngle=-45, labelFontSize=12, tickSize=0, domain=False)
-            ),
-            y=alt.Y(
-                "Punts:Q", 
-                title="Punts", 
-                axis=alt.Axis(grid=True, gridColor="#f0f2f6", domain=False)
-            ),
-            color=alt.Color(
-                "Punts:Q", 
-                scale=alt.Scale(scheme="tealblues"), 
-                legend=None
-            ),
-            tooltip=[
-                alt.Tooltip("Categoria:N", title="Categoria"),
-                alt.Tooltip("Punts:Q", title="Punts", format=".1f")
-            ]
+        chart_cat = (
+            alt.Chart(punts_categoria)
+            .mark_bar(color="#1f77b4")
+            .encode(
+                x=alt.X("Categoria:N", sort=None, title=None),
+                y=alt.Y("Punts:Q", title="Punts"),
+                tooltip=[
+                    alt.Tooltip("Categoria:N", title="Categoria"),
+                    alt.Tooltip("Punts:Q", title="Punts", format=".1f")
+                ]
+            )
+            .properties(height=320)
         )
 
-        text_cat = bars_cat.mark_text(
-            align='center',
-            baseline='bottom',
-            dy=-5,
-            fontSize=12,
-            fontWeight='bold',
-            color='#334e68'
-        ).encode(
-            text=alt.Text('Punts:Q', format='.1f')
-        )
-
-        chart_cat = (bars_cat + text_cat).properties(height=350).configure_view(strokeWidth=0)
-        c1.altair_chart(chart_cat, use_container_width=True, theme="streamlit")
+        c1.altair_chart(chart_cat, use_container_width=True)
 
         col_resultat_final_porra = trobar_col_resultat_final_porra(df_porra)
 
@@ -1346,7 +1277,7 @@ if te_departaments:
     mostrar_taula_departaments(df_departaments)
 
     st.write("#### 📈 Gràfic departaments")
-    mostrar_grafic_departaments(df_departaments, color_scheme="purples")
+    mostrar_grafic_departaments(df_departaments)
 
     st.write("### 🎯 Classificació interna per departament")
 
@@ -1388,7 +1319,7 @@ if te_departaments:
         mostrar_taula_ranking(df_dep_individual)
 
         st.write(f"### 📈 Gràfic · {departament_sel}")
-        mostrar_grafic_punts(df_dep_individual, color_scheme="purples", altura_minima=350)
+        mostrar_grafic_punts(df_dep_individual, color="#6f42c1", altura_minima=350)
 
 else:
     st.info("Per activar aquest apartat, afegeix una columna 'Departament' al costat de 'Participants' al full Porra.")
@@ -1420,7 +1351,7 @@ if participants_filtrats:
     mostrar_taula_ranking(df_lligueta)
 
     st.write("#### 📈 Gràfic de la lligueta")
-    mostrar_grafic_punts(df_lligueta, color_scheme="greens", altura_minima=350)
+    mostrar_grafic_punts(df_lligueta, color="#0f9d58", altura_minima=350)
 
 else:
     st.write("Selecciona participants per crear una classificació reduïda tipus lligueta.")
