@@ -676,12 +676,14 @@ def mostrar_grafic_punts(df, color_scheme="blues", altura_minima=950):
     max_p = chart_data["Punts"].max()
     diff = max_p - min_p if max_p != min_p else max_p
     if diff == 0: diff = 10
-    min_dom = max(0, min_p - diff * 0.05)
-    max_dom = max_p + diff * 0.15 # 15% d'aire a la dreta
+    
+    # Assegurar que els límits són natius de Python (Altair falla amb Numpy floats)
+    min_dom = float(max(0, min_p - diff * 0.05))
+    max_dom = float(max_p + diff * 0.15) # 15% d'aire a la dreta
 
     bars = alt.Chart(chart_data).mark_bar(
         cornerRadiusEnd=6,
-        height=22
+        size=22
     ).encode(
         x=alt.X(
             "Punts:Q", 
@@ -735,12 +737,14 @@ def mostrar_grafic_departaments(df_dep, color_scheme="purples"):
     max_p = chart_data["Mitjana_punts"].max()
     diff = max_p - min_p if max_p != min_p else max_p
     if diff == 0: diff = 10
-    min_dom = max(0, min_p - diff * 0.05)
-    max_dom = max_p + diff * 0.15
+    
+    # Assegurar que els límits són natius de Python (Altair falla amb Numpy floats)
+    min_dom = float(max(0, min_p - diff * 0.05))
+    max_dom = float(max_p + diff * 0.15)
 
     bars = alt.Chart(chart_data).mark_bar(
         cornerRadiusEnd=6,
-        height=26
+        size=26
     ).encode(
         x=alt.X(
             "Mitjana_punts:Q",
@@ -1280,9 +1284,9 @@ if jugador is not None:
 
         punts_categoria["Punts"] = punts_categoria["Punts"].fillna(0).round(1)
 
-        # Càlcul de padding dinàmic per l'eix Y
+        # Càlcul de padding dinàmic per l'eix Y (assegurar float per Altair)
         max_p_cat = punts_categoria["Punts"].max()
-        max_dom_cat = max_p_cat * 1.2 if max_p_cat > 0 else 10
+        max_dom_cat = float(max_p_cat * 1.2 if max_p_cat > 0 else 10)
 
         # Gràfic vertical modern per la fitxa
         bars_cat = alt.Chart(punts_categoria).mark_bar(
@@ -1298,7 +1302,7 @@ if jugador is not None:
             y=alt.Y(
                 "Punts:Q", 
                 title="Punts", 
-                scale=alt.Scale(domain=[0, max_dom_cat]),
+                scale=alt.Scale(domain=[0.0, max_dom_cat]),
                 axis=alt.Axis(grid=True, gridColor="#f0f2f6", domain=False)
             ),
             color=alt.Color(
