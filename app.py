@@ -670,8 +670,15 @@ def mostrar_grafic_punts(df, color_scheme="blues", altura_minima=950):
     chart_data = chart_data.sort_values("Punts", ascending=False)
 
     chart_height = max(altura_minima, len(chart_data) * 40)
+    
+    # Càlcul de padding dinàmic per l'eix X
+    min_p = chart_data["Punts"].min()
+    max_p = chart_data["Punts"].max()
+    diff = max_p - min_p if max_p != min_p else max_p
+    if diff == 0: diff = 10
+    min_dom = max(0, min_p - diff * 0.05)
+    max_dom = max_p + diff * 0.15 # 15% d'aire a la dreta
 
-    # 1. Barres modernes: vores arrodonides i degradat de color
     bars = alt.Chart(chart_data).mark_bar(
         cornerRadiusEnd=6,
         height=22
@@ -679,7 +686,7 @@ def mostrar_grafic_punts(df, color_scheme="blues", altura_minima=950):
         x=alt.X(
             "Punts:Q", 
             title="Punts", 
-            scale=alt.Scale(zero=False), 
+            scale=alt.Scale(domain=[min_dom, max_dom]), 
             axis=alt.Axis(grid=True, gridColor="#f0f2f6", domain=False)
         ),
         y=alt.Y(
@@ -701,11 +708,10 @@ def mostrar_grafic_punts(df, color_scheme="blues", altura_minima=950):
         ]
     )
 
-    # 2. Text amb els punts al final de cada barra
     text = bars.mark_text(
         align='left',
         baseline='middle',
-        dx=5,  # Desplaçament cap a la dreta
+        dx=8,  # Separació del text
         fontSize=12,
         fontWeight='bold',
         color='#334e68'
@@ -713,7 +719,6 @@ def mostrar_grafic_punts(df, color_scheme="blues", altura_minima=950):
         text=alt.Text('Punts:Q', format='.1f')
     )
 
-    # Unim les barres i el text, i traiem la línia negra exterior
     chart = (bars + text).properties(height=chart_height).configure_view(strokeWidth=0)
     st.altair_chart(chart, use_container_width=True, theme="streamlit")
 
@@ -725,6 +730,14 @@ def mostrar_grafic_departaments(df_dep, color_scheme="purples"):
     chart_data = df_dep.copy().sort_values("Mitjana_punts", ascending=False)
     chart_height = max(350, len(chart_data) * 46)
 
+    # Càlcul de padding dinàmic per l'eix X
+    min_p = chart_data["Mitjana_punts"].min()
+    max_p = chart_data["Mitjana_punts"].max()
+    diff = max_p - min_p if max_p != min_p else max_p
+    if diff == 0: diff = 10
+    min_dom = max(0, min_p - diff * 0.05)
+    max_dom = max_p + diff * 0.15
+
     bars = alt.Chart(chart_data).mark_bar(
         cornerRadiusEnd=6,
         height=26
@@ -732,7 +745,7 @@ def mostrar_grafic_departaments(df_dep, color_scheme="purples"):
         x=alt.X(
             "Mitjana_punts:Q",
             title="Mitjana de punts",
-            scale=alt.Scale(zero=False),
+            scale=alt.Scale(domain=[min_dom, max_dom]),
             axis=alt.Axis(grid=True, gridColor="#f0f2f6", domain=False)
         ),
         y=alt.Y(
@@ -759,7 +772,7 @@ def mostrar_grafic_departaments(df_dep, color_scheme="purples"):
     text = bars.mark_text(
         align='left',
         baseline='middle',
-        dx=5,
+        dx=8,
         fontSize=13,
         fontWeight='bold',
         color='#334e68'
@@ -1267,6 +1280,10 @@ if jugador is not None:
 
         punts_categoria["Punts"] = punts_categoria["Punts"].fillna(0).round(1)
 
+        # Càlcul de padding dinàmic per l'eix Y
+        max_p_cat = punts_categoria["Punts"].max()
+        max_dom_cat = max_p_cat * 1.2 if max_p_cat > 0 else 10
+
         # Gràfic vertical modern per la fitxa
         bars_cat = alt.Chart(punts_categoria).mark_bar(
             cornerRadiusEnd=6,
@@ -1281,6 +1298,7 @@ if jugador is not None:
             y=alt.Y(
                 "Punts:Q", 
                 title="Punts", 
+                scale=alt.Scale(domain=[0, max_dom_cat]),
                 axis=alt.Axis(grid=True, gridColor="#f0f2f6", domain=False)
             ),
             color=alt.Color(
@@ -1297,7 +1315,7 @@ if jugador is not None:
         text_cat = bars_cat.mark_text(
             align='center',
             baseline='bottom',
-            dy=-5,
+            dy=-8, # Separació del text cap amunt
             fontSize=12,
             fontWeight='bold',
             color='#334e68'
@@ -1385,7 +1403,7 @@ if te_departaments:
             row = dep_top.iloc[i]
             evolucio_dep = row["Evolució"] if "Evolució" in row.index else ""
 
-            html_top_dep += f"<div class='card {classes[i]}'><h3>{medalles[i]} {row['Participant']}</h3><h1>{float(row['Punts']):.1f}</h1><p>{departament_sel} · {evolucio_dep}</p></div>"
+            html_top_dep += f"<div class='card {classes[i]}'><h3>{medalles[i]} {row['Participant']}</h3><h1>{float(row['Punts"]):.1f}</h1><p>{departament_sel} · {evolucio_dep}</p></div>"
             
         html_top_dep += "</div>"
         st.markdown(html_top_dep, unsafe_allow_html=True)
