@@ -1403,7 +1403,7 @@ if te_departaments:
             row = dep_top.iloc[i]
             evolucio_dep = row["Evolució"] if "Evolució" in row.index else ""
 
-            html_top_dep += f"<div class='card {classes[i]}'><h3>{medalles[i]} {row['Participant']}</h3><h1>{float(row['Punts"]):.1f}</h1><p>{departament_sel} · {evolucio_dep}</p></div>"
+            html_top_dep += f"<div class='card {classes[i]}'><h3>{medalles[i]} {row['Participant']}</h3><h1>{float(row['Punts']):.1f}</h1><p>{departament_sel} · {evolucio_dep}</p></div>"
             
         html_top_dep += "</div>"
         st.markdown(html_top_dep, unsafe_allow_html=True)
