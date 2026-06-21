@@ -1137,7 +1137,7 @@ te_departaments = "Departament" in df_ranking.columns and not df_departaments.em
 # --------------------------------------------------
 # TÍTOL I LOGO EMPRESA
 # --------------------------------------------------
-col_titol, col_logo = st.columns([4, 1])
+col_titol, col_logo = st.columns([5, 1])
 
 with col_titol:
     st.markdown('<p class="title">🏆 PORRA MUNDIAL</p>', unsafe_allow_html=True)
@@ -1148,31 +1148,13 @@ with col_titol:
 
 with col_logo:
     if os.path.exists(LOGO_IMAGE):
-        # Aprofitem que Streamlit centra bé les imatges a les columnes petites
         st.image(LOGO_IMAGE, use_container_width=True)
 
 
 # --------------------------------------------------
 # INFO PRINCIPAL
 # --------------------------------------------------
-html_info = f"""
-<div class='card-grid-3'>
-    <div class='card darkcard'>
-        <h3>🕒 Dades actualitzades</h3>
-        <h1>{data_actualitzacio}</h1>
-    </div>
-    <div class='card greencard'>
-        <h3>🎁 Premi guanyador</h3>
-        <h1>{premi_guanyador} €</h1>
-        <p>{num_participants} participants x {PREU_PARTICIPACIO} €</p>
-    </div>
-    <div class='card bluecard'>
-        <h3>👥 Participants</h3>
-        <h1>{num_participants}</h1>
-        <p>porres registrades</p>
-    </div>
-</div>
-"""
+html_info = f"<div class='card-grid-3'><div class='card darkcard'><h3>🕒 Dades actualitzades</h3><h1>{data_actualitzacio}</h1></div><div class='card greencard'><h3>🎁 Premi guanyador</h3><h1>{premi_guanyador} €</h1><p>{num_participants} participants x {PREU_PARTICIPACIO} €</p></div><div class='card bluecard'><h3>👥 Participants</h3><h1>{num_participants}</h1><p>porres registrades</p></div></div>"
 st.markdown(html_info, unsafe_allow_html=True)
 
 
@@ -1215,13 +1197,8 @@ for medalla, classe, row in top_cards:
             subtext = f"{row['Departament']}"
         evolucio = row["Evolució"] if "Evolució" in row.index else ""
 
-        html_top3 += f"""
-        <div class='card {classe}'>
-            <h3>{medalla} {row["Participant"]}</h3>
-            <h1>{float(row["Punts"]):.1f}</h1>
-            <p>{subtext} · {evolucio}</p>
-        </div>
-        """
+        html_top3 += f"<div class='card {classe}'><h3>{medalla} {row['Participant']}</h3><h1>{float(row['Punts']):.1f}</h1><p>{subtext} · {evolucio}</p></div>"
+
 html_top3 += "</div>"
 st.markdown(html_top3, unsafe_allow_html=True)
 
@@ -1408,13 +1385,8 @@ if te_departaments:
             row = dep_top.iloc[i]
             evolucio_dep = row["Evolució"] if "Evolució" in row.index else ""
 
-            html_top_dep += f"""
-            <div class='card {classes[i]}'>
-                <h3>{medalles[i]} {row["Participant"]}</h3>
-                <h1>{float(row["Punts"]):.1f}</h1>
-                <p>{departament_sel} · {evolucio_dep}</p>
-            </div>
-            """
+            html_top_dep += f"<div class='card {classes[i]}'><h3>{medalles[i]} {row['Participant']}</h3><h1>{float(row['Punts']):.1f}</h1><p>{departament_sel} · {evolucio_dep}</p></div>"
+            
         html_top_dep += "</div>"
         st.markdown(html_top_dep, unsafe_allow_html=True)
 
@@ -1501,27 +1473,7 @@ st.write("### 🏟️ Resum oficial")
 
 pichichi_subtext = f"{gols_pichichi} gols" if gols_pichichi != "Pendent" else "Pendent"
 
-html_resum = f"""
-<div class='card-grid-4'>
-    <div class='card gold'>
-        <h3>🏆 Campió</h3>
-        <h1 style='font-size:28px'>{campio_real}</h1>
-    </div>
-    <div class='card silver'>
-        <h3>⭐ MVP</h3>
-        <h1 style='font-size:28px'>{mvp_real}</h1>
-    </div>
-    <div class='card bronze'>
-        <h3>⚽ Bota d'Or</h3>
-        <h1 style='font-size: clamp(16px, 2.5vw, 24px); white-space: normal; line-height: 1.2;'>{pichichi_real}</h1>
-        <p>{pichichi_subtext}</p>
-    </div>
-    <div class='card bluecard'>
-        <h3>🏁 Resultat final</h3>
-        <h1 style='font-size:28px'>{resultat_final_real}</h1>
-    </div>
-</div>
-"""
+html_resum = f"<div class='card-grid-4'><div class='card gold'><h3>🏆 Campió</h3><h1 style='font-size:28px'>{campio_real}</h1></div><div class='card silver'><h3>⭐ MVP</h3><h1 style='font-size:28px'>{mvp_real}</h1></div><div class='card bronze'><h3>⚽ Bota d'Or</h3><h1 style='font-size: clamp(16px, 2.5vw, 24px); white-space: normal; line-height: 1.2;'>{pichichi_real}</h1><p>{pichichi_subtext}</p></div><div class='card bluecard'><h3>🏁 Resultat final</h3><h1 style='font-size:28px'>{resultat_final_real}</h1></div></div>"
 st.markdown(html_resum, unsafe_allow_html=True)
 
 
