@@ -33,21 +33,6 @@ if not os.path.exists(EXCEL_FILE):
 
 
 # --------------------------------------------------
-# BOTÓ RESET SNAPSHOT
-# --------------------------------------------------
-#with st.sidebar:
- #   if st.button("🔄 Reiniciar comparativa de moviments"):
-  #      for fitxer in [
-   #         SNAPSHOT_CURRENT_FILE,
-    #        SNAPSHOT_DISPLAY_FILE,
-     #       SNAPSHOT_META_FILE
-      #  ]:
-       #     if os.path.exists(fitxer):
-        #        os.remove(fitxer)
-        #st.rerun()
-
-
-# --------------------------------------------------
 # BANDERES
 # --------------------------------------------------
 FLAGS = {
@@ -826,15 +811,39 @@ def obtenir_prediccions_fase(df_j, prefix, quantitat):
     return pd.DataFrame(files)
 
 
-def mostrar_prediccions_grups_participant(df_j):
+def mostrar_prediccions_grups_participant(df_j, df_resultats):
     st.write("### 🧩 Prediccions fase de grups")
     
+    # 1. Extraiem els resultats reals de l'Excel per comparar fàcilment
+    grups_reals = {}
+    COL_GRUP = "Grup"
+    COL_POSICIO = "Posició"
+    COL_EQUIP = "Equip"
+    
+    if all(c in df_resultats.columns for c in [COL_GRUP, COL_POSICIO, COL_EQUIP]):
+        for _, row in df_resultats.iterrows():
+            grup_str = str(row.get(COL_GRUP, "")).strip().upper()
+            # Agafem només la lletra del grup (ex: "Grup A" -> "A")
+            lletra_grup = grup_str.split()[-1] if grup_str else ""
+            posicio = str(row.get(COL_POSICIO, "")).strip()
+            equip_real = normalitzar_text(str(row.get(COL_EQUIP, "")))
+            
+            if lletra_grup and equip_real and equip_real not in ["nan", "nat", "pendent", ""]:
+                if lletra_grup not in grups_reals:
+                    grups_reals[lletra_grup] = {}
+                    
+                if posicio in ["1r", "1", "1º"]: grups_reals[lletra_grup]["1r"] = equip_real
+                elif posicio in ["2n", "2", "2º"]: grups_reals[lletra_grup]["2n"] = equip_real
+                elif posicio in ["3r", "3", "3º"]: grups_reals[lletra_grup]["3r"] = equip_real
+
+    # 2. Generem la taula del participant comparant amb la realitat
     grups_possibles = "ABCDEFGHIJKL"
     grups_dict = {}
     
     for grup in grups_possibles:
         grup_trobat = False
         grup_data = {"1r": "", "2n": "", "3r": ""}
+        real_grup_actual = grups_reals.get(grup, {})
         
         for col in df_j.columns:
             col_n = normalitzar_text(col)
@@ -852,14 +861,36 @@ def mostrar_prediccions_grups_participant(df_j):
             )
             
             if es_grup_actual:
-                if "1" in col_n:
-                    grup_data["1r"] = afegir_bandera(valor_o_pendent(df_j[col].values[0]))
-                    grup_trobat = True
-                elif "2" in col_n:
-                    grup_data["2n"] = afegir_bandera(valor_o_pendent(df_j[col].values[0]))
-                    grup_trobat = True
-                elif "3" in col_n:
-                    grup_data["3r"] = afegir_bandera(valor_o_pendent(df_j[col].values[0]))
+                pos_clau = None
+                if "1" in col_n: pos_clau = "1r"
+                elif "2" in col_n: pos_clau = "2n"
+                elif "3" in col_n: pos_clau = "3r"
+                
+                if pos_clau:
+                    valor_original = valor_o_pendent(df_j[col].values[0])
+                    equip_predit_norm = normalitzar_text(valor_original)
+                    text_base = afegir_bandera(valor_original)
+                    
+                    if equip_predit_norm in ["pendent", "nan", "nat", ""]:
+                        grup_data[pos_clau] = text_base
+                    else:
+                        # Lògica de semàfor comparant amb la realitat
+                        equip_real_posicio = real_grup_actual.get(pos_clau, "")
+                        equips_reals_classificats = list(real_grup_actual.values())
+                        
+                        if equip_predit_norm == equip_real_posicio:
+                            estat = "🟢 "
+                        elif equip_predit_norm in equips_reals_classificats:
+                            estat = "🟠 "
+                        elif equip_real_posicio != "":
+                            # Sabem qui ocupa aquesta posició realment i no és l'equip predit
+                            estat = "🔴 "
+                        else:
+                            # Encara no tenim resultats oficials per aquesta posició
+                            estat = "⚪ "
+                            
+                        grup_data[pos_clau] = f"{estat}{text_base}"
+                    
                     grup_trobat = True
         
         if grup_trobat:
@@ -1315,7 +1346,7 @@ if jugador is not None:
 
         c2.write(f"⚽ Bota d'Or: {val_bota}{gols_bota_str}")
 
-        mostrar_prediccions_grups_participant(df_j)
+        mostrar_prediccions_grups_participant(df_j, df_resultats)
         mostrar_prediccions_eliminatoria_participant(df_j)
 
 else:
