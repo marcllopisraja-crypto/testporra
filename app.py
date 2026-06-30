@@ -5,6 +5,7 @@ import base64
 import os
 import json
 import unicodedata
+import re
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -420,11 +421,13 @@ def obtenir_prediccions_fase(df_j, prefix, quantitat, team_max_phase, dead_teams
         if equip_norm in ["pendent", "nan", "nat", ""]:
             estat = "⚪ "
         else:
-            if team_max_phase.get(equip_norm, 0) >= fase_idx:
+            max_phase_reached = team_max_phase.get(equip_norm, 0)
+            
+            if max_phase_reached >= fase_idx:
                 estat = "🟢 "
             elif equip_norm in dead_teams:
                 estat = "🔴 "
-            elif vuitens_complet and team_max_phase.get(equip_norm, 0) == 0:
+            elif vuitens_complet and max_phase_reached == 0:
                 estat = "🔴 "
             else:
                 estat = "⚪ "
@@ -516,29 +519,20 @@ def mostrar_prediccions_eliminatoria_participant(df_j, df_resultats, df_calendar
         <p style="margin-bottom: 8px;"><strong>Llegenda de resultats:</strong></p>
         <ul style="margin: 0; padding-left: 20px;">
             <li>🟢 <strong>Verd:</strong> L'equip ha arribat oficialment a aquesta fase (encertat).</li>
-            <li>🔴 <strong>Vermell:</strong> L'equip ha estat eliminat (fallat).</li>
+            <li>🔴 <strong>Vermell:</strong> L'equip ha estat eliminat abans o en aquesta mateixa ronda (fallat).</li>
             <li>⚪ <strong>Pendent:</strong> Encara no ha arribat, però l'equip segueix viu al torneig.</li>
         </ul>
     </div>
     """, unsafe_allow_html=True)
     
-    # Pre-càlcul: Fins a quina fase ha arribat cada equip?
     team_max_phase = {}
     for col, idx in [("Vuitens", 1), ("Quarts", 2), ("Semis", 3), ("Finalistes", 4), ("Campió", 5)]:
         if col in df_resultats.columns:
             for val in llista_valors_no_buits(df_resultats, col):
                 t = normalitzar_text(val)
                 if t != "pendent":
-                    team_max_phase[t] = idx
+                    team_max_phase[t] = max(team_max_phase.get(t, 0), idx)
     
-    # Està complet el llistat de Vuitens? (Per saber qui va caure a grups sense revisar 48 partits)
-    vuitens_complet = False
-    if "Vuitens" in df_resultats.columns:
-        v_teams = [t for t in llista_valors_no_buits(df_resultats, "Vuitens") if normalitzar_text(t) != "pendent"]
-        if len(v_teams) >= 16:
-            vuitens_complet = True
-            
-    # Llistat d'equips definitivament eliminats a eliminatòries (analitzant els resultats complets)
     dead_teams = set()
     if not df_calendari.empty:
         for _, row in df_calendari.iterrows():
@@ -547,36 +541,47 @@ def mostrar_prediccions_eliminatoria_participant(df_j, df_resultats, df_calendar
                 fase_nom = str(row.get("Fase", "")).strip().lower()
                 partit = str(row.get("Partit", ""))
                 
-                m_idx = 0
-                if "vuit" in fase_nom: m_idx = 1
-                elif "quart" in fase_nom: m_idx = 2
-                elif "semi" in fase_nom: m_idx = 3
-                elif "final" in fase_nom and "consol" not in fase_nom and "3r" not in fase_nom: m_idx = 4
+                target_idx = 0
+                if "setzen" in fase_nom or "1/16" in fase_nom or "dieciseis" in fase_nom: target_idx = 1
+                elif "vuit" in fase_nom or "octav" in fase_nom or "1/8" in fase_nom: target_idx = 2
+                elif "quart" in fase_nom or "cuart" in fase_nom or "1/4" in fase_nom: target_idx = 3
+                elif "semi" in fase_nom or "1/2" in fase_nom: target_idx = 4
+                elif "final" in fase_nom and "consol" not in fase_nom and "3r" not in fase_nom: target_idx = 5
                 
-                if m_idx > 0:
-                    for sep in [" vs. ", " vs ", " - "]:
-                        if sep in partit:
-                            parts = partit.split(sep, 1)
-                            if len(parts) == 2:
-                                t1, t2 = normalitzar_text(parts[0]), normalitzar_text(parts[1])
-                                
-                                loser = None
-                                res_clean = res.replace(" ", "")
-                                if "-" in res_clean:
-                                    s_parts = res_clean.split("-")
-                                    if len(s_parts) == 2 and s_parts[0].isdigit() and s_parts[1].isdigit():
-                                        g1, g2 = int(s_parts[0]), int(s_parts[1])
-                                        if g1 > g2: loser = t2
-                                        elif g2 > g1: loser = t1
-                                        
-                                if loser:
-                                    dead_teams.add(loser)
-                                else:
-                                    # Fallback per penals (no identificables numèricament)
-                                    if team_max_phase.get(t1, 0) <= m_idx: dead_teams.add(t1)
-                                    if team_max_phase.get(t2, 0) <= m_idx: dead_teams.add(t2)
-                            break
-                            
+                if target_idx > 0:
+                    parts = [t.strip() for t in re.split(r' vs\. | vs | - ', partit, maxsplit=1)]
+                    if len(parts) == 2:
+                        t1, t2 = normalitzar_text(parts[0]), normalitzar_text(parts[1])
+                        
+                        matches = re.findall(r'\d+', res)
+                        winner = None
+                        loser = None
+                        
+                        if len(matches) >= 2:
+                            g1, g2 = int(matches[0]), int(matches[1])
+                            if g1 > g2: 
+                                winner, loser = t1, t2
+                            elif g2 > g1: 
+                                winner, loser = t2, t1
+                            elif len(matches) >= 4:
+                                p1, p2 = int(matches[2]), int(matches[3])
+                                if p1 > p2: 
+                                    winner, loser = t1, t2
+                                elif p2 > p1: 
+                                    winner, loser = t2, t1
+                                    
+                        if winner:
+                            team_max_phase[winner] = max(team_max_phase.get(winner, 0), target_idx)
+                        if loser:
+                            dead_teams.add(loser)
+                            team_max_phase[loser] = max(team_max_phase.get(loser, 0), target_idx - 1)
+    
+    vuitens_complet = False
+    if "Vuitens" in df_resultats.columns:
+        v_teams = [t for t in llista_valors_no_buits(df_resultats, "Vuitens") if normalitzar_text(t) != "pendent"]
+        if len(v_teams) >= 16:
+            vuitens_complet = True
+            
     tab1, tab2, tab3, tab4, tab5 = st.tabs(["Vuitens", "Quarts", "Semis", "Final", "Campió"])
     with tab1: st.dataframe(obtenir_prediccions_fase(df_j, "Vuitens", 16, team_max_phase, dead_teams, vuitens_complet, 1), use_container_width=True, hide_index=True)
     with tab2: st.dataframe(obtenir_prediccions_fase(df_j, "Quarts", 8, team_max_phase, dead_teams, vuitens_complet, 2), use_container_width=True, hide_index=True)
@@ -760,7 +765,6 @@ if jugador is not None:
         c2.write(f"⚽ Bota d'Or: {val_bota}{gols_bota_str}")
 
         mostrar_prediccions_grups_participant(df_j, df_resultats)
-        # ACÍ LI PASSEM ELS PARÀMETRES NOUS:
         mostrar_prediccions_eliminatoria_participant(df_j, df_resultats, df_calendari)
 else:
     st.info("Selecciona un participant per veure el detall de punts i prediccions.")
@@ -819,7 +823,6 @@ if not df_calendari.empty:
     
     tab_recents, tab_proxims = st.tabs(["✅ Resultats Registrats", "🔜 Pròxims Partits"])
     
-    # MOSTREM LA TAULA JA SENSE LA COLUMNA "Grup" APLICANT FILTRES DINÀMICS
     with tab_recents:
         if not df_finalitzats.empty:
             cols_fin = [c for c in ["Fase", "Partit", "Data", "Resultat"] if c in df_finalitzats.columns]
