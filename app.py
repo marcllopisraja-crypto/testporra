@@ -121,6 +121,12 @@ def normalitzar_text(text):
     text = "".join(char for char in text if unicodedata.category(char) != "Mn")
     return text
 
+def reduir_nom(nom_complet):
+    parts = str(nom_complet).strip().split()
+    if len(parts) > 1:
+        return f"{parts[0]} {parts[1][0]}."
+    return parts[0] if parts else ""
+
 def obtenir_columna_departament(df):
     for col in df.columns:
         if normalitzar_text(col) == "departament": return col
@@ -278,7 +284,7 @@ def aplicar_moviment(df_ranking, excel_mtime):
 
     if meta_mtime is not None and float(meta_mtime) == float(excel_mtime):
         df_mov = carregar_csv_segura(SNAPSHOT_DISPLAY_FILE)
-        if not df_mov.empty and "Participant" in df_mov.columns:
+        if not df_mov.empty && "Participant" in df_mov.columns:
             df_actual = df_actual.merge(df_mov, on="Participant", how="left")
             tot_nou = len(df_actual["Evolució"].dropna()) > 0 and df_actual["Evolució"].dropna().astype(str).eq("🆕 Nou").all() if "Evolució" in df_actual.columns else True
             if tot_nou:
@@ -506,7 +512,7 @@ def mostrar_prediccions_grups_participant(df_j, df_resultats):
         if grup_trobat: grups_dict[f"Grup {grup}"] = grup_data
             
     if grups_dict:
-        df_g = pd.DataFrame(grups_dict).reindex(["1r", "2n", "3r"]).reset_index().rename(columns={"index": "Posició"})
+        df_g = pd.DataFrame(grups_dict).reindex(["1r", "2n", "3r"]).reset_index().rename(columns={"index": "Posició"}), use_container_width=True, hide_index=True)
         st.dataframe(df_g, use_container_width=True, hide_index=True)
     else:
         st.info("No s'han detectat dades de la fase de grups.")
@@ -665,17 +671,23 @@ if "Canvi posició" in df_ranking.columns:
         st.write("### 🎢 La muntanya russa de posicions")
         html_mov = "<div class='card-grid-2'>"
         
+        def format_noms(llista):
+            noms_reduits = [reduir_nom(nom) for nom in llista]
+            if len(noms_reduits) > 7:
+                return " · ".join(noms_reduits[:6]) + "..."
+            return " · ".join(noms_reduits)
+        
         if max_p > 0:
             pujadors = df_ranking[df_ranking["Canvi posició"] == max_p]["Participant"].tolist()
-            noms_p = " · ".join(pujadors[:2]) + ("..." if len(pujadors) > 2 else "")
-            html_mov += f"<div class='card greencard'><h3>🚀 La gran remuntada</h3><h1>{noms_p}</h1><p>+{int(max_p)} posicions d'una tacada! 🔥</p></div>"
+            noms_p = format_noms(pujadors)
+            html_mov += f"<div class='card greencard'><h3>🚀 La gran remuntada</h3><h1 style='font-size: clamp(16px, 2vw, 24px); white-space: normal; line-height: 1.2; word-break: break-word;'>{noms_p}</h1><p>+{int(max_p)} posicions d'una tacada! 🔥</p></div>"
         else:
             html_mov += "<div class='card greencard'><h3>🚀 La gran remuntada</h3><h1>-</h1><p>Ningú ha guanyat posicions encara 🤷‍♂️</p></div>"
             
         if min_p < 0:
             baixadors = df_ranking[df_ranking["Canvi posició"] == min_p]["Participant"].tolist()
-            noms_b = " · ".join(baixadors[:2]) + ("..." if len(baixadors) > 2 else "")
-            html_mov += f"<div class='card redcard'><h3>📉 Caiguda lliure</h3><h1>{noms_b}</h1><p>{int(min_p)} posicions avall... 🥶🚑</p></div>"
+            noms_b = format_noms(baixadors)
+            html_mov += f"<div class='card redcard'><h3>📉 Caiguda lliure</h3><h1 style='font-size: clamp(16px, 2vw, 24px); white-space: normal; line-height: 1.2; word-break: break-word;'>{noms_b}</h1><p>{int(min_p)} posicions avall... 🥶🚑</p></div>"
         else:
             html_mov += "<div class='card redcard'><h3>📉 Caiguda lliure</h3><h1>-</h1><p>Tothom manté el tipus 🧘‍♂️</p></div>"
             
@@ -684,10 +696,16 @@ if "Canvi posició" in df_ranking.columns:
 
 
 # --------------------------------------------------
-# DEPARTAMENT LÍDER
+# PODI DE DEPARTAMENTS LÍDERS
 # --------------------------------------------------
 if te_departaments:
-    st.markdown(f"<div class='card purplecard'><h3>🏢 Departament líder</h3><h1>{df_departaments.iloc[0]['Departament']}</h1><p>Mitjana {float(df_departaments.iloc[0]['Mitjana_punts']):.1f} punts · {int(df_departaments.iloc[0]['Participants'])} participants</p></div>", unsafe_allow_html=True)
+    st.subheader("🏢 TOP 3 Departaments")
+    html_top_dep = "<div class='card-grid-3'>"
+    for i, (medalla, classe) in enumerate([("🥇", "gold"), ("🥈", "silver"), ("🥉", "bronze")]):
+        if len(df_departaments) > i:
+            row_dep = df_departaments.iloc[i]
+            html_top_dep += f"<div class='card {classe}'><h3>{medalla} {row_dep['Departament']}</h3><h1>{float(row_dep['Mitjana_punts']):.1f}</h1><p>Mitjana · {int(row_dep['Participants'])} part. · Líder: {row_dep['Líder departament']}</p></div>"
+    st.markdown(html_top_dep + "</div>", unsafe_allow_html=True)
 
 # --------------------------------------------------
 # TOP 3 GENERAL
@@ -782,12 +800,12 @@ if te_departaments:
     if departament_sel:
         df_dep_individual = recalcular_posicions(df_ranking[df_ranking["Departament"] == departament_sel].copy())
         st.write(f"### 🥇 TOP 3 · {departament_sel}")
-        html_top_dep = "<div class='card-grid-3'>"
+        html_top_dep_ind = "<div class='card-grid-3'>"
         for i, (medalla, classe) in enumerate([("🥇", "gold"), ("🥈", "silver"), ("🥉", "bronze")]):
             if len(df_dep_individual) > i:
                 row = df_dep_individual.iloc[i]
-                html_top_dep += f"<div class='card {classe}'><h3>{medalla} {row['Participant']}</h3><h1>{float(row['Punts']):.1f}</h1><p>{departament_sel} · {row.get('Evolució', '')}</p></div>"
-        st.markdown(html_top_dep + "</div>", unsafe_allow_html=True)
+                html_top_dep_ind += f"<div class='card {classe}'><h3>{medalla} {row['Participant']}</h3><h1>{float(row['Punts']):.1f}</h1><p>{departament_sel} · {row.get('Evolució', '')}</p></div>"
+        st.markdown(html_top_dep_ind + "</div>", unsafe_allow_html=True)
         mostrar_taula_ranking(df_dep_individual)
         mostrar_grafic_punts(df_dep_individual, color_scheme="purples", altura_minima=350)
 else:
@@ -837,7 +855,7 @@ if not df_calendari.empty:
         else:
             st.info("No hi ha partits pendents.")
 else:
-    st.info("Afegeix una pestanya 'Calendari' al teu Excel per veure els propers partits i resultats.")
+    st.info("Afegeix una pestanya 'Calendari' al teu Excel per ver els propers partits i resultats.")
 
 
 # --------------------------------------------------
