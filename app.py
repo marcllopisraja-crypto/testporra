@@ -502,16 +502,31 @@ def mostrar_evolucio_tots_participants(df_porra):
     if df_evo.empty:
         st.info("No hi ha dades suficients per mostrar l’evolució de punts per ronda.")
         return
+
     ordre = ["Grups", "Vuitens", "Quarts", "Semis", "Finalistes", "Campió", "Resultat final", "MVP", "Bota d'Or"]
     rondes_existents = [r for r in ordre if r in df_evo["Ronda"].unique()]
-    noms = sorted(df_evo["Participant curt"].dropna().astype(str).unique().tolist())
-    st.caption("La llegenda es mostra amb el format Nom + inicial del cognom per facilitar la lectura.")
+
+    ordre_llegenda_df = (
+        df_evo.groupby("Participant curt", as_index=False)["Punts acumulats"]
+        .max()
+        .sort_values("Punts acumulats", ascending=False)
+    )
+    ordre_llegenda = ordre_llegenda_df["Participant curt"].tolist()
+    max_punts = float(df_evo["Punts acumulats"].max()) if not df_evo.empty else 40.0
+    domini_y = [35, max(40.0, max_punts + 2)]
+
+    st.caption("Llegenda ordenada de més a menys punts. El gràfic comença a 35 punts per veure millor les diferències.")
     chart = alt.Chart(df_evo).mark_line(point=True, strokeWidth=2.2).encode(
         x=alt.X("Ronda:N", sort=rondes_existents, title=None, axis=alt.Axis(labelAngle=-35, labelFontSize=12)),
-        y=alt.Y("Punts acumulats:Q", title="Punts acumulats", scale=alt.Scale(zero=True)),
-        color=alt.Color("Participant curt:N", title="Participants", legend=alt.Legend(orient="right", columns=1, labelLimit=180, labelFontSize=11, titleFontSize=13, symbolSize=90)),
+        y=alt.Y("Punts acumulats:Q", title="Punts acumulats", scale=alt.Scale(domain=domini_y, zero=False)),
+        color=alt.Color(
+            "Participant curt:N",
+            sort=ordre_llegenda,
+            title="Participants",
+            legend=alt.Legend(orient="right", columns=1, labelLimit=190, labelFontSize=11, titleFontSize=13, symbolSize=90)
+        ),
         tooltip=["Participant", "Ronda", alt.Tooltip("Punts acumulats:Q", format=".1f")]
-    ).properties(height=max(520, min(980, 26 * max(10, len(noms)))))
+    ).properties(height=max(540, min(1000, 26 * max(10, len(ordre_llegenda)))))
     st.altair_chart(chart.configure_view(strokeWidth=0), use_container_width=True, theme="streamlit")
 
 def obtenir_evolucio_departaments(df_porra):
@@ -544,15 +559,30 @@ def mostrar_evolucio_departaments(df_porra):
     if df_dep_evo.empty:
         st.info("No hi ha dades suficients per mostrar l’evolució per departaments.")
         return
+
     ordre = ["Grups", "Vuitens", "Quarts", "Semis", "Finalistes", "Campió", "Resultat final", "MVP", "Bota d'Or"]
     rondes_existents = [r for r in ordre if r in df_dep_evo["Ronda"].unique()]
-    deps = sorted(df_dep_evo["Departament"].dropna().astype(str).unique().tolist())
+
+    ordre_deps_df = (
+        df_dep_evo.groupby("Departament", as_index=False)["Punts acumulats"]
+        .max()
+        .sort_values("Punts acumulats", ascending=False)
+    )
+    deps = ordre_deps_df["Departament"].tolist()
+    max_punts = float(df_dep_evo["Punts acumulats"].max()) if not df_dep_evo.empty else 40.0
+    domini_y = [35, max(40.0, max_punts + 2)]
+
     chart = alt.Chart(df_dep_evo).mark_line(point=True, strokeWidth=3).encode(
         x=alt.X("Ronda:N", sort=rondes_existents, title=None, axis=alt.Axis(labelAngle=-35, labelFontSize=12)),
-        y=alt.Y("Punts acumulats:Q", title="Mitjana punts acumulats", scale=alt.Scale(zero=True)),
-        color=alt.Color("Departament:N", title="Departaments", legend=alt.Legend(orient="right", columns=1, labelLimit=220, labelFontSize=12, titleFontSize=13, symbolSize=120)),
+        y=alt.Y("Punts acumulats:Q", title="Mitjana punts acumulats", scale=alt.Scale(domain=domini_y, zero=False)),
+        color=alt.Color(
+            "Departament:N",
+            sort=deps,
+            title="Departaments",
+            legend=alt.Legend(orient="right", columns=1, labelLimit=240, labelFontSize=12, titleFontSize=13, symbolSize=120)
+        ),
         tooltip=["Departament", "Ronda", alt.Tooltip("Punts acumulats:Q", format=".1f")]
-    ).properties(height=max(420, 40 * max(6, len(deps))))
+    ).properties(height=max(440, 42 * max(6, len(deps))))
     st.altair_chart(chart.configure_view(strokeWidth=0), use_container_width=True, theme="streamlit")
 
 def preparar_prediccions_resultat_final(df_porra):
@@ -1028,7 +1058,7 @@ st.subheader("🏢 Competició per departaments")
 if te_departaments:
     st.write("Rànquing calculat per **mitjana de punts** del departament. També es mostren punts totals, millor puntuació i líder del departament.")
     mostrar_taula_departaments(df_departaments)
-    mostrar_grafic_departaments(df_departaments, color_scheme="purples")
+    mostrar_evolucio_departaments(df_porra)
     
     departament_sel = st.selectbox("Selecciona departament", sorted(df_ranking["Departament"].dropna().astype(str).unique()), index=None, placeholder="Selecciona un departament...")
     if departament_sel:
