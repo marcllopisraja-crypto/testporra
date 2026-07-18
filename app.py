@@ -94,7 +94,7 @@ def carregar_dades(excel_file, file_mtime):
         )
         df_porra = sheets["Porra"]
         df_resultats = sheets["Resultats Reals"]
-        df_calendari = pd.DataFrame(columns=["Fase", "Partit", "Data", "Hora", "Grup", "Resultat"])
+        df_calendari = pd.DataFrame(columns=["Fase", "Partit", "Data", "Hora", "Resultat"])
 
     df_porra.columns = df_porra.columns.astype(str).str.strip()
     df_resultats.columns = df_resultats.columns.astype(str).str.strip()
@@ -194,11 +194,14 @@ def trobar_col_resultat_final_porra(df_porra):
 
 def recalcular_posicions(df):
     df = df.copy().sort_values("Punts", ascending=False).reset_index(drop=True)
-    df["Posició"] = df.index + 1
+    
     if not df.empty:
+        df["Posició"] = df["Punts"].rank(method="min", ascending=False).astype(int)
         df["Dif líder"] = (df["Punts"] - float(df["Punts"].iloc[0])).round(1)
     else:
+        df["Posició"] = 1
         df["Dif líder"] = 0
+        
     return df
 
 
@@ -284,7 +287,7 @@ def aplicar_moviment(df_ranking, excel_mtime):
 
     if meta_mtime is not None and float(meta_mtime) == float(excel_mtime):
         df_mov = carregar_csv_segura(SNAPSHOT_DISPLAY_FILE)
-        if not df_mov.empty && "Participant" in df_mov.columns:
+        if not df_mov.empty and "Participant" in df_mov.columns:
             df_actual = df_actual.merge(df_mov, on="Participant", how="left")
             tot_nou = len(df_actual["Evolució"].dropna()) > 0 and df_actual["Evolució"].dropna().astype(str).eq("🆕 Nou").all() if "Evolució" in df_actual.columns else True
             if tot_nou:
@@ -414,6 +417,133 @@ def obtenir_pichichi_real(df_resultats_display, col_pichichi, col_gols):
     jugadors_top = taula[taula[col_gols] == taula[col_gols].max()][col_pichichi].tolist()
     return " · ".join(jugadors_top), str(int(taula[col_gols].max()))
 
+
+# --------------------------------------------------
+# V11.1 PRE-FINAL: EVOLUCIÓ PER RONDA I PREDICCIONS FINAL
+# --------------------------------------------------
+def valor_numeric_fila(df_j, columna):
+    if columna not in df_j.columns:
+        return 0.0
+    valor = pd.to_numeric(df_j[columna].values[0], errors="coerce")
+    return 0.0 if pd.isna(valor) else float(valor)
+
+def obtenir_evolucio_punts_ronda(df_j):
+    grups = (
+        valor_numeric_fila(df_j, "Punts Grups 1r") +
+        valor_numeric_fila(df_j, "Punts Grups 2n") +
+        valor_numeric_fila(df_j, "Punts Grups 3r")
+    )
+    punts_rondes = [
+        ("Grups", grups),
+        ("Vuitens", valor_numeric_fila(df_j, "Punts Vuitens")),
+        ("Quarts", valor_numeric_fila(df_j, "Punts Quarts")),
+        ("Semis", valor_numeric_fila(df_j, "Punts Semis")),
+        ("Finalistes", valor_numeric_fila(df_j, "Punts Finalistes")),
+        ("Campió", valor_numeric_fila(df_j, "Punts Campió")),
+        ("Resultat final", valor_numeric_fila(df_j, "Punts Resultat Final")),
+        ("MVP", valor_numeric_fila(df_j, "Punts MVP")),
+        ("Bota d'Or", valor_numeric_fila(df_j, "Punts Pichichi")),
+    ]
+    acumulat = 0.0
+    files = []
+    for ronda, punts in punts_rondes:
+        punts = 0.0 if pd.isna(punts) else float(punts)
+        acumulat += punts
+        files.append({"Ronda": ronda, "Punts ronda": round(punts, 1), "Acumulat": round(acumulat, 1)})
+    total_excel = valor_numeric_fila(df_j, "Total Punts")
+    if total_excel and abs(total_excel - acumulat) > 0.05:
+        files.append({"Ronda": "Total Excel", "Punts ronda": round(total_excel - acumulat, 1), "Acumulat": round(total_excel, 1)})
+    return pd.DataFrame(files)
+
+def mostrar_evolucio_punts_ronda(df_j):
+    st.write("### 📈 Evolució de punts per ronda")
+    df_evo = obtenir_evolucio_punts_ronda(df_j)
+    if df_evo.empty:
+        st.info("No hi ha dades de punts per ronda.")
+        return
+    ordre = df_evo["Ronda"].tolist()
+    line = alt.Chart(df_evo).mark_line(point=True, strokeWidth=4, color="#0b70c9").encode(
+        x=alt.X("Ronda:N", sort=ordre, title=None, axis=alt.Axis(labelAngle=-35)),
+        y=alt.Y("Acumulat:Q", title="Punts acumulats", scale=alt.Scale(zero=True)),
+        tooltip=["Ronda", alt.Tooltip("Punts ronda:Q", format=".1f"), alt.Tooltip("Acumulat:Q", format=".1f")]
+    )
+    text = alt.Chart(df_evo).mark_text(dy=-12, fontSize=12, fontWeight="bold", color="#102a43").encode(
+        x=alt.X("Ronda:N", sort=ordre),
+        y="Acumulat:Q",
+        text=alt.Text("Acumulat:Q", format=".1f")
+    )
+    st.altair_chart((line + text).properties(height=330).configure_view(strokeWidth=0), use_container_width=True, theme="streamlit")
+    st.dataframe(df_evo, use_container_width=True, hide_index=True, column_config={
+        "Punts ronda": st.column_config.NumberColumn("Punts ronda", format="%.1f"),
+        "Acumulat": st.column_config.NumberColumn("Acumulat", format="%.1f"),
+    })
+
+def preparar_prediccions_resultat_final(df_porra):
+    col_res = trobar_col_resultat_final_porra(df_porra)
+    if col_res is None or "Participants" not in df_porra.columns:
+        return pd.DataFrame(), pd.DataFrame()
+    df = df_porra[["Participants", col_res]].copy()
+    df.columns = ["Participant", "Resultat apostat"]
+    df["Participant"] = df["Participant"].astype(str).str.strip()
+    df["Resultat apostat"] = df["Resultat apostat"].apply(valor_o_pendent)
+    df = df[(df["Participant"] != "") & (df["Resultat apostat"] != "Pendent")]
+    df["Participant curt"] = df["Participant"].apply(reduir_nom)
+    detall = df[["Participant", "Resultat apostat"]].sort_values(["Resultat apostat", "Participant"]).reset_index(drop=True)
+    agrupat = df.groupby("Resultat apostat", as_index=False).agg(
+        Participants=("Participant curt", lambda noms: ", ".join(sorted([str(n) for n in noms if str(n).strip()]))),
+        Total=("Participant curt", "count")
+    ).sort_values(["Total", "Resultat apostat"], ascending=[False, True]).reset_index(drop=True)
+    agrupat = agrupat[["Resultat apostat", "Participants", "Total"]]
+    return detall, agrupat
+
+def opcio_mes_apostada(df_porra, columna):
+    if columna not in df_porra.columns or "Participants" not in df_porra.columns:
+        return "Pendent", ""
+    df = df_porra[["Participants", columna]].copy()
+    df[columna] = df[columna].apply(valor_o_pendent)
+    df = df[df[columna] != "Pendent"]
+    if df.empty:
+        return "Pendent", ""
+    recompte = df.groupby(columna)["Participants"].apply(lambda s: ", ".join(sorted(s.astype(str).apply(reduir_nom)))).reset_index(name="Participants")
+    recompte["Total"] = recompte["Participants"].apply(lambda x: len([n for n in x.split(", ") if n]))
+    recompte = recompte.sort_values(["Total", columna], ascending=[False, True]).reset_index(drop=True)
+    valor = recompte.iloc[0][columna]
+    participants = recompte.iloc[0]["Participants"]
+    return valor, participants
+
+def mostrar_prediccions_resultat_final(df_porra):
+    st.subheader("🏁 Prediccions del resultat final")
+    detall, agrupat = preparar_prediccions_resultat_final(df_porra)
+    if detall.empty and agrupat.empty:
+        st.info("Encara no hi ha prediccions del resultat final o no s’ha trobat la columna corresponent.")
+        return
+    tab_resum, tab_detall = st.tabs(["📊 Resultats apostats", "👥 Prediccions per participant"])
+    with tab_resum:
+        st.dataframe(agrupat, use_container_width=True, hide_index=True, column_config={
+            "Resultat apostat": st.column_config.TextColumn("Resultat apostat"),
+            "Participants": st.column_config.TextColumn("Participants"),
+            "Total": st.column_config.NumberColumn("Total", format="%d"),
+        })
+    with tab_detall:
+        st.dataframe(detall, use_container_width=True, hide_index=True)
+
+def mostrar_estadistiques_prefinal(df_porra):
+    st.subheader("📊 Estadístiques pre-final")
+    campio, campio_parts = opcio_mes_apostada(df_porra, "Campió")
+    mvp, mvp_parts = opcio_mes_apostada(df_porra, "MVP")
+    bota, bota_parts = opcio_mes_apostada(df_porra, "Pichichi") if "Pichichi" in df_porra.columns else ("Pendent", "")
+    _, resultats_agrupats = preparar_prediccions_resultat_final(df_porra)
+    if not resultats_agrupats.empty:
+        resultat_top = resultats_agrupats.iloc[0]["Resultat apostat"]
+        resultat_parts = resultats_agrupats.iloc[0]["Participants"]
+    else:
+        resultat_top, resultat_parts = "Pendent", ""
+    c1, c2, c3, c4 = st.columns(4)
+    c1.markdown(f"<div class='card bluecard'><h3>🏆 Campió més apostat</h3><h1 style='font-size:24px'>{afegir_bandera(campio)}</h1><p>{campio_parts}</p></div>", unsafe_allow_html=True)
+    c2.markdown(f"<div class='card greencard'><h3>⭐ MVP més apostat</h3><h1 style='font-size:24px'>{mvp}</h1><p>{mvp_parts}</p></div>", unsafe_allow_html=True)
+    c3.markdown(f"<div class='card purplecard'><h3>⚽ Bota d'Or més apostada</h3><h1 style='font-size:24px'>{bota}</h1><p>{bota_parts}</p></div>", unsafe_allow_html=True)
+    c4.markdown(f"<div class='card darkcard'><h3>🏁 Resultat més apostat</h3><h1 style='font-size:24px'>{resultat_top}</h1><p>{resultat_parts}</p></div>", unsafe_allow_html=True)
+
 def obtenir_prediccions_fase(df_j, prefix, quantitat, team_max_phase, dead_teams, vuitens_complet, fase_idx):
     files = []
     for i in range(1, quantitat + 1):
@@ -512,7 +642,7 @@ def mostrar_prediccions_grups_participant(df_j, df_resultats):
         if grup_trobat: grups_dict[f"Grup {grup}"] = grup_data
             
     if grups_dict:
-        df_g = pd.DataFrame(grups_dict).reindex(["1r", "2n", "3r"]).reset_index().rename(columns={"index": "Posició"}), use_container_width=True, hide_index=True)
+        df_g = pd.DataFrame(grups_dict).reindex(["1r", "2n", "3r"]).reset_index().rename(columns={"index": "Posició"})
         st.dataframe(df_g, use_container_width=True, hide_index=True)
     else:
         st.info("No s'han detectat dades de la fase de grups.")
@@ -707,6 +837,7 @@ if te_departaments:
             html_top_dep += f"<div class='card {classe}'><h3>{medalla} {row_dep['Departament']}</h3><h1>{float(row_dep['Mitjana_punts']):.1f}</h1><p>Mitjana · {int(row_dep['Participants'])} part. · Líder: {row_dep['Líder departament']}</p></div>"
     st.markdown(html_top_dep + "</div>", unsafe_allow_html=True)
 
+
 # --------------------------------------------------
 # TOP 3 GENERAL
 # --------------------------------------------------
@@ -718,6 +849,7 @@ for i, (medalla, classe) in enumerate([("🥇", "gold"), ("🥈", "silver"), ("�
         row = top3.iloc[i]
         html_top3 += f"<div class='card {classe}'><h3>{medalla} {row['Participant']}</h3><h1>{float(row['Punts']):.1f}</h1><p>{row.get('Departament', 'punts')} · {row.get('Evolució', '')}</p></div>"
 st.markdown(html_top3 + "</div>", unsafe_allow_html=True)
+
 
 # --------------------------------------------------
 # CLASSIFICACIÓ GENERAL
@@ -767,6 +899,8 @@ if jugador is not None:
             tooltip=[alt.Tooltip("Categoria:N"), alt.Tooltip("Punts:Q", format=".1f")]
         )
         c1.altair_chart((bars_cat + bars_cat.mark_text(align='center', baseline='bottom', dy=-8, fontSize=12, fontWeight='bold', color='#334e68').encode(text=alt.Text('Punts:Q', format='.1f'))).properties(height=350).configure_view(strokeWidth=0), use_container_width=True, theme="streamlit")
+
+        mostrar_evolucio_punts_ronda(df_j)
 
         col_resultat_final_porra = trobar_col_resultat_final_porra(df_porra)
         c2.write("### ⚽ Prediccions principals")
@@ -826,6 +960,12 @@ else:
 
 
 # --------------------------------------------------
+# V11.1 · DASHBOARD PRE-FINAL
+# --------------------------------------------------
+mostrar_estadistiques_prefinal(df_porra)
+mostrar_prediccions_resultat_final(df_porra)
+
+# --------------------------------------------------
 # CALENDARI I RESULTATS DELS PARTITS
 # --------------------------------------------------
 st.subheader("📅 Calendari i Resultats dels Partits")
@@ -855,7 +995,7 @@ if not df_calendari.empty:
         else:
             st.info("No hi ha partits pendents.")
 else:
-    st.info("Afegeix una pestanya 'Calendari' al teu Excel per ver els propers partits i resultats.")
+    st.info("Afegeix una pestanya 'Calendari' al teu Excel per veure els propers partits i resultats.")
 
 
 # --------------------------------------------------
@@ -882,7 +1022,8 @@ if all(col in df_resultats_display.columns for col in ["Grup", "Posició", "Equi
             if posicio in ["1r", "1", "1º"]: grups[grup]["1r"] = afegir_bandera(equip)
             elif posicio in ["2n", "2", "2º"]: grups[grup]["2n"] = afegir_bandera(equip)
             elif posicio in ["3r", "3", "3º"]: grups[grup]["3r"] = afegir_bandera(equip)
-    if grups: st.dataframe(pd.DataFrame(grups).reindex(["1r", "2n", "3r"]).reset_index().rename(columns={"index": "Posició"}), use_container_width=True, hide_index=True)
+    if grups: 
+        st.dataframe(pd.DataFrame(grups).reindex(["1r", "2n", "3r"]).reset_index().rename(columns={"index": "Posició"}), use_container_width=True, hide_index=True)
     else: st.info("No hi ha dades de fase de grups configurades.")
 else: st.info("No hi ha dades de fase de grups configurades.")
 
