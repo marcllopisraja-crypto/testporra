@@ -478,6 +478,83 @@ def mostrar_evolucio_punts_ronda(df_j):
         "Acumulat": st.column_config.NumberColumn("Acumulat", format="%.1f"),
     })
 
+
+def obtenir_evolucio_tots_participants(df_porra):
+    files = []
+    for _, row in df_porra.iterrows():
+        participant = str(row.get("Participants", "")).strip()
+        if participant == "" or participant.lower() in ["nan", "total"] or "total" in participant.lower():
+            continue
+        df_j = pd.DataFrame([row])
+        df_evo = obtenir_evolucio_punts_ronda(df_j)
+        if df_evo.empty:
+            continue
+        for _, evo in df_evo.iterrows():
+            ronda = str(evo.get("Ronda", ""))
+            if ronda == "Total Excel":
+                continue
+            files.append({"Participant": participant, "Participant curt": reduir_nom(participant), "Ronda": ronda, "Punts acumulats": float(evo.get("Acumulat", 0))})
+    return pd.DataFrame(files)
+
+def mostrar_evolucio_tots_participants(df_porra):
+    st.subheader("📈 Evolució de punts per ronda")
+    df_evo = obtenir_evolucio_tots_participants(df_porra)
+    if df_evo.empty:
+        st.info("No hi ha dades suficients per mostrar l’evolució de punts per ronda.")
+        return
+    ordre = ["Grups", "Vuitens", "Quarts", "Semis", "Finalistes", "Campió", "Resultat final", "MVP", "Bota d'Or"]
+    rondes_existents = [r for r in ordre if r in df_evo["Ronda"].unique()]
+    noms = sorted(df_evo["Participant curt"].dropna().astype(str).unique().tolist())
+    st.caption("La llegenda es mostra amb el format Nom + inicial del cognom per facilitar la lectura.")
+    chart = alt.Chart(df_evo).mark_line(point=True, strokeWidth=2.2).encode(
+        x=alt.X("Ronda:N", sort=rondes_existents, title=None, axis=alt.Axis(labelAngle=-35, labelFontSize=12)),
+        y=alt.Y("Punts acumulats:Q", title="Punts acumulats", scale=alt.Scale(zero=True)),
+        color=alt.Color("Participant curt:N", title="Participants", legend=alt.Legend(orient="right", columns=1, labelLimit=180, labelFontSize=11, titleFontSize=13, symbolSize=90)),
+        tooltip=["Participant", "Ronda", alt.Tooltip("Punts acumulats:Q", format=".1f")]
+    ).properties(height=max(520, min(980, 26 * max(10, len(noms)))))
+    st.altair_chart(chart.configure_view(strokeWidth=0), use_container_width=True, theme="streamlit")
+
+def obtenir_evolucio_departaments(df_porra):
+    col_dep = obtenir_columna_departament(df_porra)
+    if col_dep is None:
+        return pd.DataFrame()
+    df_base = df_porra.copy()
+    df_base[col_dep] = df_base[col_dep].fillna("Sense departament").astype(str).str.strip().replace("", "Sense departament")
+    files = []
+    for _, row in df_base.iterrows():
+        participant = str(row.get("Participants", "")).strip()
+        if participant == "" or participant.lower() in ["nan", "total"] or "total" in participant.lower():
+            continue
+        departament = str(row.get(col_dep, "Sense departament")).strip() or "Sense departament"
+        df_j = pd.DataFrame([row])
+        df_evo = obtenir_evolucio_punts_ronda(df_j)
+        for _, evo in df_evo.iterrows():
+            ronda = str(evo.get("Ronda", ""))
+            if ronda == "Total Excel":
+                continue
+            files.append({"Departament": departament, "Ronda": ronda, "Punts acumulats": float(evo.get("Acumulat", 0))})
+    if not files:
+        return pd.DataFrame()
+    df = pd.DataFrame(files)
+    return df.groupby(["Departament", "Ronda"], as_index=False)["Punts acumulats"].mean().round({"Punts acumulats": 1})
+
+def mostrar_evolucio_departaments(df_porra):
+    st.write("#### 📈 Evolució de punts per departament")
+    df_dep_evo = obtenir_evolucio_departaments(df_porra)
+    if df_dep_evo.empty:
+        st.info("No hi ha dades suficients per mostrar l’evolució per departaments.")
+        return
+    ordre = ["Grups", "Vuitens", "Quarts", "Semis", "Finalistes", "Campió", "Resultat final", "MVP", "Bota d'Or"]
+    rondes_existents = [r for r in ordre if r in df_dep_evo["Ronda"].unique()]
+    deps = sorted(df_dep_evo["Departament"].dropna().astype(str).unique().tolist())
+    chart = alt.Chart(df_dep_evo).mark_line(point=True, strokeWidth=3).encode(
+        x=alt.X("Ronda:N", sort=rondes_existents, title=None, axis=alt.Axis(labelAngle=-35, labelFontSize=12)),
+        y=alt.Y("Punts acumulats:Q", title="Mitjana punts acumulats", scale=alt.Scale(zero=True)),
+        color=alt.Color("Departament:N", title="Departaments", legend=alt.Legend(orient="right", columns=1, labelLimit=220, labelFontSize=12, titleFontSize=13, symbolSize=120)),
+        tooltip=["Departament", "Ronda", alt.Tooltip("Punts acumulats:Q", format=".1f")]
+    ).properties(height=max(420, 40 * max(6, len(deps))))
+    st.altair_chart(chart.configure_view(strokeWidth=0), use_container_width=True, theme="streamlit")
+
 def preparar_prediccions_resultat_final(df_porra):
     col_res = trobar_col_resultat_final_porra(df_porra)
     if col_res is None or "Participants" not in df_porra.columns:
@@ -538,11 +615,31 @@ def mostrar_estadistiques_prefinal(df_porra):
         resultat_parts = resultats_agrupats.iloc[0]["Participants"]
     else:
         resultat_top, resultat_parts = "Pendent", ""
+
+    def total_parts(parts):
+        return len([n for n in str(parts).split(", ") if n.strip()]) if parts else 0
+
+    dades = [
+        ("🏆 Campió més apostat", afegir_bandera(campio), campio_parts, "bluecard"),
+        ("⭐ MVP més apostat", mvp, mvp_parts, "greencard"),
+        ("⚽ Bota d'Or més apostada", bota, bota_parts, "purplecard"),
+        ("🏁 Resultat més apostat", resultat_top, resultat_parts, "darkcard"),
+    ]
     c1, c2, c3, c4 = st.columns(4)
-    c1.markdown(f"<div class='card bluecard'><h3>🏆 Campió més apostat</h3><h1 style='font-size:24px'>{afegir_bandera(campio)}</h1><p>{campio_parts}</p></div>", unsafe_allow_html=True)
-    c2.markdown(f"<div class='card greencard'><h3>⭐ MVP més apostat</h3><h1 style='font-size:24px'>{mvp}</h1><p>{mvp_parts}</p></div>", unsafe_allow_html=True)
-    c3.markdown(f"<div class='card purplecard'><h3>⚽ Bota d'Or més apostada</h3><h1 style='font-size:24px'>{bota}</h1><p>{bota_parts}</p></div>", unsafe_allow_html=True)
-    c4.markdown(f"<div class='card darkcard'><h3>🏁 Resultat més apostat</h3><h1 style='font-size:24px'>{resultat_top}</h1><p>{resultat_parts}</p></div>", unsafe_allow_html=True)
+    for col, (titol, valor, parts, classe) in zip([c1, c2, c3, c4], dades):
+        total = total_parts(parts)
+        col.markdown(
+            f"<div class='card {classe}'><h3>{titol}</h3><h1 style='font-size:24px; white-space: normal;'>{valor}</h1><p>{total} participants</p></div>",
+            unsafe_allow_html=True
+        )
+    with st.expander("👥 Veure tots els participants de les estadístiques pre-final", expanded=False):
+        for titol, valor, parts, _ in dades:
+            st.markdown(f"**{titol}: {valor}**")
+            if parts:
+                noms = [n for n in str(parts).split(", ") if n.strip()]
+                st.write(" · ".join(noms))
+            else:
+                st.write("Pendent")
 
 def obtenir_prediccions_fase(df_j, prefix, quantitat, team_max_phase, dead_teams, vuitens_complet, fase_idx):
     files = []
@@ -791,6 +888,12 @@ st.markdown(f"<div class='card-grid-3'><div class='card darkcard'><h3>🕒 Dades
 
 
 # --------------------------------------------------
+# V11.2 · DASHBOARD PRE-FINAL AL PRINCIPI
+# --------------------------------------------------
+mostrar_estadistiques_prefinal(df_porra)
+mostrar_prediccions_resultat_final(df_porra)
+
+# --------------------------------------------------
 # MOVIMENTS DESTACATS (PUJADES I BAIXADES)
 # --------------------------------------------------
 if "Canvi posició" in df_ranking.columns:
@@ -857,8 +960,7 @@ st.markdown(html_top3 + "</div>", unsafe_allow_html=True)
 st.subheader("📊 Classificació general")
 mostrar_taula_ranking(df_ranking)
 
-st.subheader("📈 Gràfic general de punts")
-mostrar_grafic_punts(df_ranking, color_scheme="blues", altura_minima=1000)
+mostrar_evolucio_tots_participants(df_porra)
 
 # --------------------------------------------------
 # FITXA PARTICIPANT
@@ -899,8 +1001,6 @@ if jugador is not None:
             tooltip=[alt.Tooltip("Categoria:N"), alt.Tooltip("Punts:Q", format=".1f")]
         )
         c1.altair_chart((bars_cat + bars_cat.mark_text(align='center', baseline='bottom', dy=-8, fontSize=12, fontWeight='bold', color='#334e68').encode(text=alt.Text('Punts:Q', format='.1f'))).properties(height=350).configure_view(strokeWidth=0), use_container_width=True, theme="streamlit")
-
-        mostrar_evolucio_punts_ronda(df_j)
 
         col_resultat_final_porra = trobar_col_resultat_final_porra(df_porra)
         c2.write("### ⚽ Prediccions principals")
@@ -958,12 +1058,6 @@ if participants_filtrats:
 else:
     st.write("Selecciona participants per crear una classificació reduïda tipus lligueta.")
 
-
-# --------------------------------------------------
-# V11.1 · DASHBOARD PRE-FINAL
-# --------------------------------------------------
-mostrar_estadistiques_prefinal(df_porra)
-mostrar_prediccions_resultat_final(df_porra)
 
 # --------------------------------------------------
 # CALENDARI I RESULTATS DELS PARTITS
