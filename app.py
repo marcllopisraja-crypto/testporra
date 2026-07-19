@@ -16,7 +16,7 @@ st.set_page_config(
     page_title="Porra Mundial",
     layout="wide"
 )
-# V11.4.3 AI IMAGE BUILD
+# V11.4.4 FINAL CLEAN AWARDS
 
 EXCEL_FILE = "Porra_Mundial_Final_Definitiva.xlsx"
 BACKGROUND_IMAGE = "fifa-Trionda.jpg"
@@ -1064,15 +1064,13 @@ def trobar_imatge_ia(base_name):
             return path
     return None
 
-def mostrar_bloc_imatge_ia(base_name, titol, subtitol, placeholder):
+def mostrar_bloc_imatge_ia(base_name, titol, subtitol="", placeholder=""):
     path = trobar_imatge_ia(base_name)
-    st.markdown(f"<div class='ai-poster-block'><div class='ai-poster-title'>{titol}</div><div class='ai-poster-subtitle'>{subtitol}</div>", unsafe_allow_html=True)
-    if path:
-        st.image(path, use_container_width=True)
-    else:
-        st.markdown(f"<div class='ai-placeholder'>{placeholder}</div>", unsafe_allow_html=True)
+    if not path:
+        return
+    st.markdown(f"<div class='ai-poster-block'><div class='ai-poster-title'>{titol}</div></div>", unsafe_allow_html=True)
+    st.image(path, use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
-
 def obtenir_moviments_jornada(df_ranking):
     if df_ranking.empty or "Canvi posició" not in df_ranking.columns:
         return None, None
@@ -1085,21 +1083,36 @@ def obtenir_moviments_jornada(df_ranking):
 def obtenir_premis_especials(df_ranking, df_departaments, df_porra, df_resultats_display):
     premis = []
     encerts = preparar_qui_la_va_clavar(df_porra, df_resultats_display) if 'preparar_qui_la_va_clavar' in globals() else pd.DataFrame()
-    if not encerts.empty:
-        oracle = encerts.iloc[0]
-        premis.append(("🎯 Oracle de la Final", oracle["Participant"], f"Distància {int(oracle['Distància'])} respecte el resultat real"))
-        premis.append(("⚽ Especialista en resultats", oracle["Participant"], f"Resultat apostat: {oracle['Resultat apostat']}"))
+    if not encerts.empty and "Distància" in encerts.columns:
+        exactes = encerts[pd.to_numeric(encerts["Distància"], errors="coerce").fillna(999) == 0]
+        if not exactes.empty:
+            noms = " · ".join(exactes["Participant"].astype(str).tolist())
+            resultat = exactes.iloc[0].get("Resultat real", "Resultat exacte")
+            premis.append(("🎯 Resultat final encertat", noms, f"Resultat exacte: {resultat}"))
+        else:
+            premis.append(("🎯 Resultat final encertat", "Cap encertant", "Cap participant ha clavat el marcador exacte"))
     else:
-        premis.append(("🎯 Oracle de la Final", "Pendent", "Falta resultat real o prediccions numèriques"))
-        premis.append(("⚽ Especialista en resultats", "Pendent", "Falta resultat real o prediccions numèriques"))
+        premis.append(("🎯 Resultat final encertat", "Pendent", "Falta resultat real o prediccions numèriques"))
 
-    if "Canvi punts" in df_ranking.columns:
+    if "Canvi posició" in df_ranking.columns:
         tmp = df_ranking.copy()
-        tmp["Canvi punts"] = pd.to_numeric(tmp["Canvi punts"], errors="coerce").fillna(0)
-        sprint = tmp.sort_values("Canvi punts", ascending=False).iloc[0]
-        premis.append(("🔥 Sprint final", sprint["Participant"], f"{float(sprint['Canvi punts']):+.1f} punts en l'última jornada"))
+        tmp["Canvi posició"] = pd.to_numeric(tmp["Canvi posició"], errors="coerce").fillna(0)
+        max_pujada = tmp["Canvi posició"].max()
+        if max_pujada > 0:
+            noms_pujada = " · ".join(tmp[tmp["Canvi posició"] == max_pujada]["Participant"].astype(str).tolist())
+            premis.append(("🔥 Sprint final", noms_pujada, f"+{int(max_pujada)} posicions"))
+        else:
+            premis.append(("🔥 Sprint final", "Sense pujades", "Cap participant ha guanyat posicions"))
+
+        max_baixada = tmp["Canvi posició"].min()
+        if max_baixada < 0:
+            noms_baixada = " · ".join(tmp[tmp["Canvi posició"] == max_baixada]["Participant"].astype(str).tolist())
+            premis.append(("💥 Punxada final", noms_baixada, f"{int(max_baixada)} posicions"))
+        else:
+            premis.append(("💥 Punxada final", "Sense baixades", "Cap participant ha perdut posicions"))
     else:
-        premis.append(("🔥 Sprint final", "Pendent", "No hi ha columna de canvi de punts"))
+        premis.append(("🔥 Sprint final", "Pendent", "No hi ha columna de canvi de posició"))
+        premis.append(("💥 Punxada final", "Pendent", "No hi ha columna de canvi de posició"))
 
     if df_departaments is not None and not df_departaments.empty and "Departament" in df_ranking.columns:
         dep_lider = df_departaments.iloc[0]["Departament"]
@@ -1112,7 +1125,6 @@ def obtenir_premis_especials(df_ranking, df_departaments, df_porra, df_resultats
     else:
         premis.append(("🏢 Orgull del Departament", "Pendent", "Sense departaments configurats"))
     return premis
-
 def obtenir_resultat_real_final(df_resultats_display):
     valor = primer_valor_o_pendent(df_resultats_display, "Resultat Final") if df_resultats_display is not None else "Pendent"
     marcador = extreure_marcador_final(valor) if 'extreure_marcador_final' in globals() else None
@@ -1204,22 +1216,11 @@ def mostrar_dashboard_campio_premium(df_ranking, df_departaments, df_porra, df_r
         )
     podi_html = "".join(podi_cards)
 
-    df_tend, resum = preparar_tendencia_resultat_final(df_porra) if 'preparar_tendencia_resultat_final' in globals() else (pd.DataFrame(), {})
-    esp = int(resum.get("espanya", 0)) if isinstance(resum, dict) else 0
-    arg = int(resum.get("argentina", 0)) if isinstance(resum, dict) else 0
-    emp = int(resum.get("empat", 0)) if isinstance(resum, dict) else 0
-    res_top = resum.get("resultat_top", "Pendent") if isinstance(resum, dict) else "Pendent"
-    res_top_total = int(resum.get("resultat_top_total", 0)) if isinstance(resum, dict) else 0
-
     guanya_pos, perd_pos = obtenir_moviments_jornada(df_final)
     guanya_nom = guanya_pos["Participant"] if guanya_pos is not None else "Pendent"
     guanya_detail = f"+{int(guanya_pos['Canvi posició'])} posicions" if guanya_pos is not None and float(guanya_pos.get('Canvi posició', 0)) > 0 else "Sense pujades destacades"
     perd_nom = perd_pos["Participant"] if perd_pos is not None else "Pendent"
     perd_detail = f"{int(perd_pos['Canvi posició'])} posicions" if perd_pos is not None and float(perd_pos.get('Canvi posició', 0)) < 0 else "Sense baixades destacades"
-
-    fanalet = df_final.iloc[-1]
-    fanalet_html = f"{fanalet['Participant']}"
-    fanalet_detail = f"{float(fanalet['Punts']):.1f} punts"
 
     dep_title = "Pendent"
     dep_detail = "Afegeix departaments per activar aquest bloc."
@@ -1250,10 +1251,10 @@ def mostrar_dashboard_campio_premium(df_ranking, df_departaments, df_porra, df_r
         f"<div class='podium-grid'>{podi_html}</div>"
         "</div>"
         "<div class='premium-kpi-grid'>"
-        f"<div class='premium-kpi'><h3>🇪🇸 Victòria Espanya</h3><div class='big'>{esp}</div><div class='small'>apostes</div></div>"
-        f"<div class='premium-kpi'><h3>🇦🇷 Victòria Argentina</h3><div class='big'>{arg}</div><div class='small'>apostes</div></div>"
-        f"<div class='premium-kpi'><h3>🤝 Empat</h3><div class='big'>{emp}</div><div class='small'>apostes</div></div>"
-        f"<div class='premium-kpi'><h3>🎯 Resultat més apostat</h3><div class='big'>{res_top}</div><div class='small'>{res_top_total} participants</div></div>"
+        f"<div class='premium-kpi'><h3>🏆 Selecció campiona</h3><div class='big'>{campio_real}</div><div class='small'>Campiona del Mundial</div></div>"
+        f"<div class='premium-kpi'><h3>⭐ MVP</h3><div class='big'>{mvp_real}</div><div class='small'>Millor jugador</div></div>"
+        f"<div class='premium-kpi'><h3>⚽ Bota d'Or</h3><div class='big'>{bota_txt}</div><div class='small'>Màxim golejador</div></div>"
+        f"<div class='premium-kpi'><h3>🏁 Resultat final</h3><div class='big'>{resultat_real}</div><div class='small'>Marcador oficial</div></div>"
         "</div>"
         "</div>"
     )
@@ -1261,9 +1262,7 @@ def mostrar_dashboard_campio_premium(df_ranking, df_departaments, df_porra, df_r
 
     mostrar_bloc_imatge_ia(
         "imatge_campions",
-        "🥇🥈🥉 Pòster IA dels tres primers classificats",
-        "Col·loca el fitxer imatge_campions.png, .jpg, .jpeg o .webp a la carpeta principal del repositori.",
-        "Espai preparat per a imatge_campions"
+        "🥇🥈🥉 Els tres primers classificats"
     )
 
     html2 = (
@@ -1273,14 +1272,6 @@ def mostrar_dashboard_campio_premium(df_ranking, df_departaments, df_porra, df_r
         f"<div class='story-card'><h3>📉 Més posicions perdudes</h3><div class='hero-text'>{perd_nom}</div><div class='detail'>{perd_detail}</div></div>"
         f"<div class='story-card'><h3>🏢 Departament campió</h3><div class='hero-text'>{dep_title}</div><div class='detail'>{dep_detail}</div></div>"
         "</div>"
-        "<div class='story-grid'>"
-        f"<div class='story-card'><h3>🏆 Campió real</h3><div class='hero-text'>{campio_real}</div><div class='detail'>Resultat final: {resultat_real}</div></div>"
-        f"<div class='story-card'><h3>⭐ MVP</h3><div class='hero-text'>{mvp_real}</div><div class='detail'>Moment clau del torneig</div></div>"
-        f"<div class='story-card'><h3>⚽ Bota d'Or</h3><div class='hero-text'>{bota_txt}</div><div class='detail'>Màxim golejador registrat</div></div>"
-        "</div>"
-        "<div class='story-grid'>"
-        f"<div class='story-card'><h3>🏮 Fanalet vermell</h3><div class='hero-text'>{fanalet_html}</div><div class='detail'>{fanalet_detail}</div></div>"
-        "</div>"
         f"<div class='final-phrase'>“{frase}”</div>"
         "</div>"
     )
@@ -1288,12 +1279,10 @@ def mostrar_dashboard_campio_premium(df_ranking, df_departaments, df_porra, df_r
 
     mostrar_bloc_imatge_ia(
         "imatge_últims",
-        "🏮 Pòster IA del fanalet vermell",
-        "Col·loca el fitxer imatge_últims.png, .jpg, .jpeg o .webp a la carpeta principal del repositori.",
-        "Espai preparat per a imatge_últims"
+        "🏮 Fanalet vermell"
     )
 
-    premis = obtenir_premis_especials(df_final, df_departaments, df_porra, df_resultats_display)
+    premis = obtener_premis_especials if False else obtenir_premis_especials(df_final, df_departaments, df_porra, df_resultats_display)
     premis_html = "<div class='champion-wrap'><div class='champion-title'><div><h2>🎖 Premis especials</h2></div></div><div class='special-grid'>"
     for titol, nom, detall in premis:
         premis_html += f"<div class='special-card'><h3>{titol}</h3><div class='special-name'>{nom}</div><div class='special-detail'>{detall}</div></div>"
@@ -1302,10 +1291,10 @@ def mostrar_dashboard_campio_premium(df_ranking, df_departaments, df_porra, df_r
 
     encerts = preparar_qui_la_va_clavar(df_porra, df_resultats_display)
     if not encerts.empty:
-        st.subheader("🎯 Qui la va clavar?")
-        st.dataframe(encerts.head(15), use_container_width=True, hide_index=True, column_config={
-            "Distància": st.column_config.NumberColumn("Distància", format="%d"),
-        })
+        exactes = encerts[pd.to_numeric(encerts["Distància"], errors="coerce").fillna(999) == 0]
+        if not exactes.empty:
+            st.subheader("🎯 Resultat de la final encertat")
+            st.dataframe(exactes[["Participant", "Resultat apostat", "Estat"]], use_container_width=True, hide_index=True)
 # --------------------------------------------------
 # ESTILS + FONS
 # --------------------------------------------------
