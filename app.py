@@ -1012,6 +1012,175 @@ def mostrar_dashboard_final_professional(df_ranking, df_departaments, df_porra, 
     </div>
     """, unsafe_allow_html=True)
 
+
+# --------------------------------------------------
+# V11.4 · DASHBOARD PREMIUM DEL CAMPIÓ
+# --------------------------------------------------
+def obtenir_resultat_real_final(df_resultats_display):
+    valor = primer_valor_o_pendent(df_resultats_display, "Resultat Final") if df_resultats_display is not None else "Pendent"
+    marcador = extreure_marcador_final(valor) if 'extreure_marcador_final' in globals() else None
+    return valor, marcador
+
+def preparar_qui_la_va_clavar(df_porra, df_resultats_display):
+    col_res = trobar_col_resultat_final_porra(df_porra)
+    resultat_real, marcador_real = obtenir_resultat_real_final(df_resultats_display)
+    if col_res is None or marcador_real is None:
+        return pd.DataFrame()
+    files = []
+    real_esp, real_arg = marcador_real
+    for _, row in df_porra.iterrows():
+        participant = str(row.get("Participants", "")).strip()
+        if participant == "" or participant.lower() == "nan" or "total" in participant.lower():
+            continue
+        resultat = valor_o_pendent(row.get(col_res, ""))
+        marcador = extreure_marcador_final(resultat) if 'extreure_marcador_final' in globals() else None
+        if marcador is None:
+            continue
+        esp, arg = marcador
+        distancia = abs(esp - real_esp) + abs(arg - real_arg)
+        if distancia == 0:
+            estat = "🥇 Clavat"
+        elif distancia == 1:
+            estat = "🥈 Molt a prop"
+        elif distancia == 2:
+            estat = "🥉 A prop"
+        else:
+            estat = "⚪ Lluny"
+        files.append({
+            "Participant": participant,
+            "Participant curt": reduir_nom(participant),
+            "Resultat apostat": resultat,
+            "Resultat real": resultat_real,
+            "Distància": distancia,
+            "Estat": estat,
+        })
+    if not files:
+        return pd.DataFrame()
+    return pd.DataFrame(files).sort_values(["Distància", "Participant"]).reset_index(drop=True)
+
+def obtenir_remuntada_destacada(df_ranking):
+    if df_ranking.empty or "Canvi posició" not in df_ranking.columns:
+        return None
+    tmp = df_ranking.copy()
+    tmp["Canvi posició"] = pd.to_numeric(tmp["Canvi posició"], errors="coerce").fillna(0)
+    tmp = tmp.sort_values("Canvi posició", ascending=False)
+    if tmp.empty or float(tmp.iloc[0]["Canvi posició"]) <= 0:
+        return None
+    return tmp.iloc[0]
+
+def generar_frase_final(df_ranking, df_departaments, df_porra, df_resultats_display):
+    if df_ranking.empty:
+        return "La porra encara no té dades suficients per generar el resum final."
+    guanyador = df_ranking.iloc[0]
+    punts = float(guanyador.get("Punts", 0))
+    resultat_real = primer_valor_o_pendent(df_resultats_display, "Resultat Final") if df_resultats_display is not None else "Pendent"
+    df_tend, resum = preparar_tendencia_resultat_final(df_porra) if 'preparar_tendencia_resultat_final' in globals() else (pd.DataFrame(), {})
+    resultat_top = resum.get("resultat_top", "Pendent") if isinstance(resum, dict) else "Pendent"
+    avg_esp = resum.get("avg_esp", 0) if isinstance(resum, dict) else 0
+    avg_arg = resum.get("avg_arg", 0) if isinstance(resum, dict) else 0
+    dep_txt = ""
+    if df_departaments is not None and not df_departaments.empty:
+        dep_txt = f" El departament campió ha estat {df_departaments.iloc[0]['Departament']} amb {float(df_departaments.iloc[0]['Mitjana_punts']):.1f} punts de mitjana."
+    return f"{guanyador['Participant']} es proclama campió de la Porra Mundial amb {punts:.1f} punts. El resultat real de la final és {resultat_real}; el marcador més apostat era {resultat_top}. La porra projectava una mitjana de gols de {avg_esp:.2f} per Espanya i {avg_arg:.2f} per Argentina.{dep_txt}"
+
+def mostrar_dashboard_campio_premium(df_ranking, df_departaments, df_porra, df_resultats_display):
+    if df_ranking.empty:
+        return
+    df_final = df_ranking.copy().sort_values("Punts", ascending=False).reset_index(drop=True)
+    guanyador = df_final.iloc[0]
+    segon = df_final.iloc[1] if len(df_final) > 1 else None
+    tercer = df_final.iloc[2] if len(df_final) > 2 else None
+    diff_seg = float(guanyador["Punts"] - segon["Punts"]) if segon is not None else 0.0
+
+    podi_html = ""
+    for medalla, row in [("🥇", guanyador), ("🥈", segon), ("🥉", tercer)]:
+        if row is not None:
+            dep = f" · {row.get('Departament', '')}" if "Departament" in row.index and str(row.get('Departament', '')).strip() else ""
+            podi_html += f"""
+            <div class='podium-card'>
+                <div class='podium-medal'>{medalla}</div>
+                <div><div class='podium-name'>{row['Participant']}</div><div class='podium-meta'>{dep}</div></div>
+                <div class='podium-score'>{float(row['Punts']):.1f}</div>
+            </div>
+            """
+
+    df_tend, resum = preparar_tendencia_resultat_final(df_porra) if 'preparar_tendencia_resultat_final' in globals() else (pd.DataFrame(), {})
+    esp = int(resum.get("espanya", 0)) if isinstance(resum, dict) else 0
+    arg = int(resum.get("argentina", 0)) if isinstance(resum, dict) else 0
+    emp = int(resum.get("empat", 0)) if isinstance(resum, dict) else 0
+    res_top = resum.get("resultat_top", "Pendent") if isinstance(resum, dict) else "Pendent"
+    res_top_total = int(resum.get("resultat_top_total", 0)) if isinstance(resum, dict) else 0
+
+    rem = obtenir_remuntada_destacada(df_final)
+    rem_html = "Sense remuntada destacada"
+    rem_detail = "No hi ha canvis positius registrats en l'última actualització."
+    if rem is not None:
+        rem_html = f"{rem['Participant']}"
+        rem_detail = f"+{int(rem['Canvi posició'])} posicions"
+
+    fanalet = df_final.iloc[-1]
+    fanalet_html = f"{fanalet['Participant']}"
+    fanalet_detail = f"{float(fanalet['Punts']):.1f} punts"
+
+    dep_title = "Pendent"
+    dep_detail = "Afegeix departaments per activar aquest bloc."
+    if df_departaments is not None and not df_departaments.empty:
+        dep = df_departaments.iloc[0]
+        dep_title = f"{dep['Departament']}"
+        dep_detail = f"{float(dep['Mitjana_punts']):.1f} punts de mitjana · {int(dep['Participants'])} participants"
+
+    resultat_real = primer_valor_o_pendent(df_resultats_display, "Resultat Final") if df_resultats_display is not None else "Pendent"
+    campio_real = afegir_bandera(primer_valor_o_pendent(df_resultats_display, "Campió")) if df_resultats_display is not None else "Pendent"
+    mvp_real = primer_valor_o_pendent(df_resultats_display, "MVP") if df_resultats_display is not None else "Pendent"
+    pichichi_real, gols_pichichi = obtenir_pichichi_real(df_resultats_display, "Jugador Pichichi", "Gols") if df_resultats_display is not None else ("Pendent", "Pendent")
+    bota_txt = f"{pichichi_real} ({gols_pichichi})" if gols_pichichi != "Pendent" else pichichi_real
+    frase = generar_frase_final(df_final, df_departaments, df_porra, df_resultats_display)
+
+    st.markdown(f"""
+    <div class='champion-wrap'>
+        <div class='champion-title'>
+            <div>
+                <h2>🏆 Celebració del campió</h2>
+                <p>Dashboard final premium de la Porra Mundial 2026</p>
+            </div>
+            <div class='champion-badge'>V11.4 · FINAL MODE</div>
+        </div>
+        <div class='champion-grid'>
+            <div class='champion-hero'>
+                <div class='champion-kicker'>Campió absolut</div>
+                <div class='champion-name'>{guanyador['Participant']}</div>
+                <div class='champion-points'>{float(guanyador['Punts']):.1f} punts</div>
+                <div class='champion-diff'>+{diff_seg:.1f} respecte al segon classificat</div>
+            </div>
+            <div class='podium-grid'>{podi_html}</div>
+        </div>
+        <div class='premium-kpi-grid'>
+            <div class='premium-kpi'><h3>🇪🇸 Victòria Espanya</h3><div class='big'>{esp}</div><div class='small'>apostes</div></div>
+            <div class='premium-kpi'><h3>🇦🇷 Victòria Argentina</h3><div class='big'>{arg}</div><div class='small'>apostes</div></div>
+            <div class='premium-kpi'><h3>🤝 Empat</h3><div class='big'>{emp}</div><div class='small'>apostes</div></div>
+            <div class='premium-kpi'><h3>🎯 Resultat més apostat</h3><div class='big'>{res_top}</div><div class='small'>{res_top_total} participants</div></div>
+        </div>
+        <div class='story-grid'>
+            <div class='story-card'><h3>🚀 Remuntada del Mundial</h3><div class='hero-text'>{rem_html}</div><div class='detail'>{rem_detail}</div></div>
+            <div class='story-card'><h3>🔦 Fanalet vermell</h3><div class='hero-text'>{fanalet_html}</div><div class='detail'>{fanalet_detail}</div></div>
+            <div class='story-card'><h3>🏢 Departament campió</h3><div class='hero-text'>{dep_title}</div><div class='detail'>{dep_detail}</div></div>
+        </div>
+        <div class='story-grid'>
+            <div class='story-card'><h3>🏆 Campió real</h3><div class='hero-text'>{campio_real}</div><div class='detail'>Resultat final: {resultat_real}</div></div>
+            <div class='story-card'><h3>⭐ MVP</h3><div class='hero-text'>{mvp_real}</div><div class='detail'>Moment clau del torneig</div></div>
+            <div class='story-card'><h3>⚽ Bota d'Or</h3><div class='hero-text'>{bota_txt}</div><div class='detail'>Màxim golejador registrat</div></div>
+        </div>
+        <div class='final-phrase'>“{frase}”</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    encerts = preparar_qui_la_va_clavar(df_porra, df_resultats_display)
+    if not encerts.empty:
+        st.subheader("🎯 Qui la va clavar?")
+        st.dataframe(encerts.head(15), use_container_width=True, hide_index=True, column_config={
+            "Distància": st.column_config.NumberColumn("Distància", format="%d"),
+        })
+
 # --------------------------------------------------
 # ESTILS + FONS
 # --------------------------------------------------
@@ -1068,6 +1237,74 @@ st.markdown(
 .final-summary-box {{ padding: 18px 20px; border-radius: 18px; background: rgba(255,255,255,0.78); border: 1px solid rgba(0,0,0,0.08); box-shadow: 0px 4px 18px rgba(0,0,0,0.10); margin-top: 10px; margin-bottom: 16px; }}
 .final-summary-box h3 {{ margin-top: 0 !important; }}
 @media (max-width: 1100px) {{ .final-trend-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }} }}
+
+/* ========================= V11.4 PREMIUM WINNER DASHBOARD ========================= */
+.champion-wrap {{
+    margin: 22px 0 30px 0;
+    padding: 26px;
+    border-radius: 32px;
+    background:
+        radial-gradient(circle at 15% 10%, rgba(255,215,0,0.34), transparent 28%),
+        radial-gradient(circle at 90% 0%, rgba(124,197,255,0.28), transparent 26%),
+        linear-gradient(135deg, rgba(5,20,36,0.97), rgba(8,52,92,0.94) 55%, rgba(15,113,201,0.88));
+    box-shadow: 0 20px 55px rgba(0,0,0,0.36);
+    color: white;
+    overflow: hidden;
+    position: relative;
+}}
+.champion-wrap::before {{
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: linear-gradient(120deg, rgba(255,255,255,0.08), transparent 36%, rgba(255,255,255,0.04));
+    pointer-events: none;
+}}
+.champion-title {{
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: flex-start;
+    margin-bottom: 18px;
+}}
+.champion-title h2 {{ color: white !important; font-size: clamp(30px, 4.2vw, 56px); margin: 0; letter-spacing: -1.2px; text-shadow: 0 4px 18px rgba(0,0,0,0.33); }}
+.champion-title p {{ margin: 4px 0 0 0; color: rgba(255,255,255,0.86); font-weight: 650; }}
+.champion-badge {{ border: 1px solid rgba(255,255,255,0.28); background: rgba(255,255,255,0.13); backdrop-filter: blur(8px); border-radius: 999px; padding: 10px 15px; font-weight: 900; white-space: nowrap; }}
+.champion-grid {{ display: grid; grid-template-columns: 1.45fr 1fr; gap: 18px; position: relative; }}
+.champion-hero {{
+    min-height: 330px;
+    border-radius: 28px;
+    padding: 28px;
+    background: linear-gradient(135deg, rgba(255,215,0,0.28), rgba(255,255,255,0.12));
+    border: 1px solid rgba(255,255,255,0.24);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.18);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}}
+.champion-kicker {{ font-size: 15px; text-transform: uppercase; letter-spacing: 2px; font-weight: 900; color: #fff1a8; }}
+.champion-name {{ font-size: clamp(40px, 6vw, 82px); line-height: 0.95; font-weight: 1000; margin: 12px 0; letter-spacing: -2px; text-shadow: 0 4px 22px rgba(0,0,0,0.32); }}
+.champion-points {{ font-size: clamp(24px, 3vw, 38px); font-weight: 1000; color: #fff1a8; }}
+.champion-diff {{ margin-top: 10px; font-size: 18px; font-weight: 800; color: rgba(255,255,255,0.9); }}
+.podium-grid {{ display: grid; grid-template-columns: 1fr; gap: 12px; }}
+.podium-card {{ border-radius: 22px; padding: 18px; background: rgba(255,255,255,0.13); border: 1px solid rgba(255,255,255,0.22); backdrop-filter: blur(8px); display: grid; grid-template-columns: 54px 1fr auto; gap: 12px; align-items: center; }}
+.podium-medal {{ font-size: 34px; }}
+.podium-name {{ font-size: 20px; font-weight: 950; line-height: 1.05; }}
+.podium-meta {{ font-size: 13px; color: rgba(255,255,255,0.78); margin-top: 4px; }}
+.podium-score {{ font-size: 27px; font-weight: 1000; color: #fff1a8; }}
+.premium-kpi-grid {{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-top: 18px; position: relative; }}
+.premium-kpi {{ border-radius: 22px; padding: 18px; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.20); min-height: 145px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }}
+.premium-kpi h3 {{ color: white !important; margin: 0 0 8px 0; font-size: 16px; white-space: normal !important; }}
+.premium-kpi .big {{ font-size: clamp(24px, 3.2vw, 42px); font-weight: 1000; color: #fff1a8; line-height: 1; }}
+.premium-kpi .small {{ font-weight: 750; color: rgba(255,255,255,0.82); margin-top: 8px; }}
+.story-grid {{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 18px; position: relative; }}
+.story-card {{ border-radius: 24px; padding: 20px; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.20); min-height: 170px; }}
+.story-card h3 {{ color: white !important; margin: 0 0 10px 0; }}
+.story-card .hero-text {{ font-size: 25px; font-weight: 1000; line-height: 1.1; color: #fff1a8; }}
+.story-card .detail {{ color: rgba(255,255,255,0.84); font-weight: 700; margin-top: 8px; }}
+.final-phrase {{ margin-top: 18px; border-radius: 22px; padding: 18px 20px; background: rgba(255,255,255,0.16); border: 1px solid rgba(255,255,255,0.24); color: white; font-size: 18px; font-weight: 800; line-height: 1.35; }}
+@media (max-width: 1100px) {{ .champion-grid, .story-grid {{ grid-template-columns: 1fr; }} .premium-kpi-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }} .champion-title {{ flex-direction: column; }} }}
+@media (max-width: 720px) {{ .premium-kpi-grid {{ grid-template-columns: 1fr; }} .podium-card {{ grid-template-columns: 44px 1fr; }} .podium-score {{ grid-column: 2; }} }}
 @media (max-width: 768px) {{ .block-container {{ padding-left: 0.8rem; padding-right: 0.8rem; border-radius: 16px; }} .card-grid-2, .card-grid-3, .card-grid-4 {{ grid-template-columns: 1fr; }} .card {{ min-height: 140px; }} .card h3, .card h1, .card p {{ white-space: normal; }} }}
     </style>
     """, unsafe_allow_html=True
