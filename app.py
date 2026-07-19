@@ -18,7 +18,7 @@ st.set_page_config(
     page_title="Porra Mundial",
     layout="wide"
 )
-# V11.4.8 CELEBRATION DELUXE JS BUILD
+# V11.4.9 FINAL + TOP DEPARTAMENTS BUILD
 
 EXCEL_FILE = "Porra_Mundial_Final_Definitiva.xlsx"
 BACKGROUND_IMAGE = "fifa-Trionda.jpg"
@@ -1353,6 +1353,23 @@ def mostrar_bloc_imatge_ia(base_name, titol, subtitol="", placeholder=""):
     st.markdown(f"<div class='ai-poster-block'><div class='ai-poster-title'>{titol}</div></div>", unsafe_allow_html=True)
     st.image(path, use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
+
+def trobar_imatge_resum_final():
+    for base_name in ["imatge_final", "imatge_resum_final", "imatge_partit_final", "imatge_resum_partit"]:
+        path = trobar_imatge_ia(base_name)
+        if path:
+            return path
+    return None
+
+def mostrar_bloc_resum_visual_final():
+    path = trobar_imatge_resum_final()
+    st.markdown("<div class='ai-poster-block'><div class='ai-poster-title'>🎨 Resum visual de la final</div></div>", unsafe_allow_html=True)
+    if path:
+        st.image(path, use_container_width=True)
+    else:
+        st.markdown("<div class='ai-placeholder'>Espai reservat per al resum visual de la final</div>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
 def obtenir_moviments_jornada(df_ranking):
     if df_ranking.empty or "Canvi posició" not in df_ranking.columns:
         return None, None
@@ -1497,19 +1514,6 @@ def mostrar_dashboard_campio_premium(df_ranking, df_departaments, df_porra, df_r
         )
     podi_html = "".join(podi_cards)
 
-    guanya_pos, perd_pos = obtenir_moviments_jornada(df_final)
-    guanya_nom = guanya_pos["Participant"] if guanya_pos is not None else "Pendent"
-    guanya_detail = f"+{int(guanya_pos['Canvi posició'])} posicions" if guanya_pos is not None and float(guanya_pos.get('Canvi posició', 0)) > 0 else "Sense pujades destacades"
-    perd_nom = perd_pos["Participant"] if perd_pos is not None else "Pendent"
-    perd_detail = f"{int(perd_pos['Canvi posició'])} posicions" if perd_pos is not None and float(perd_pos.get('Canvi posició', 0)) < 0 else "Sense baixades destacades"
-
-    dep_title = "Pendent"
-    dep_detail = "Afegeix departaments per activar aquest bloc."
-    if df_departaments is not None and not df_departaments.empty:
-        dep = df_departaments.iloc[0]
-        dep_title = f"{dep['Departament']}"
-        dep_detail = f"{float(dep['Mitjana_punts']):.1f} punts de mitjana · {int(dep['Participants'])} participants"
-
     resultat_real = primer_valor_o_pendent(df_resultats_display, "Resultat Final") if df_resultats_display is not None else "Pendent"
     campio_real = afegir_bandera(primer_valor_o_pendent(df_resultats_display, "Campió")) if df_resultats_display is not None else "Pendent"
     mvp_real = primer_valor_o_pendent(df_resultats_display, "MVP") if df_resultats_display is not None else "Pendent"
@@ -1532,7 +1536,7 @@ def mostrar_dashboard_campio_premium(df_ranking, df_departaments, df_porra, df_r
         f"<div class='podium-grid'>{podi_html}</div>"
         "</div>"
         "<div class='premium-kpi-grid'>"
-        f"<div class='premium-kpi'><h3>🏆 Selecció guanyadora</h3><div class='big'>{campio_real}</div><div class='small'>Campiona del Mundial</div></div>"
+        f"<div class='premium-kpi'><h3>🏆 Selecció guanyadora</h3><div class='big'>{campio_real}</div><div class='small'>Guanyadora del Mundial</div></div>"
         f"<div class='premium-kpi'><h3>⭐ MVP</h3><div class='big'>{mvp_real}</div><div class='small'>Millor jugador</div></div>"
         f"<div class='premium-kpi'><h3>⚽ Bota d'Or</h3><div class='big'>{bota_txt}</div><div class='small'>Màxim golejador</div></div>"
         f"<div class='premium-kpi'><h3>🏁 Resultat final</h3><div class='big'>{resultat_real}</div><div class='small'>Marcador oficial</div></div>"
@@ -1546,24 +1550,49 @@ def mostrar_dashboard_campio_premium(df_ranking, df_departaments, df_porra, df_r
         "🥇🥈🥉 Els tres primers classificats"
     )
 
+    dept_cards = []
+    medalles_dep = ["🥇", "🥈", "🥉"]
+    if df_departaments is not None and not df_departaments.empty:
+        for i in range(3):
+            if len(df_departaments) > i:
+                dep = df_departaments.iloc[i]
+                dept_cards.append(
+                    "<div class='story-card'>"
+                    f"<h3>{medalles_dep[i]} Departament TOP {i + 1}</h3>"
+                    f"<div class='hero-text'>{dep['Departament']}</div>"
+                    f"<div class='detail'>{float(dep['Mitjana_punts']):.1f} punts de mitjana · {int(dep['Participants'])} participants</div>"
+                    "</div>"
+                )
+            else:
+                dept_cards.append(
+                    "<div class='story-card'><h3>🏢 Departament TOP</h3><div class='hero-text'>Pendent</div><div class='detail'>Sense dades</div></div>"
+                )
+    else:
+        dept_cards = [
+            "<div class='story-card'><h3>🏢 Departament TOP</h3><div class='hero-text'>Pendent</div><div class='detail'>Sense departaments configurats</div></div>"
+        ] * 3
+
     html2 = (
         "<div class='champion-wrap'>"
-        "<div class='story-grid'>"
-        f"<div class='story-card'><h3>📈 Més posicions guanyades</h3><div class='hero-text'>{guanya_nom}</div><div class='detail'>{guanya_detail}</div></div>"
-        f"<div class='story-card'><h3>📉 Més posicions perdudes</h3><div class='hero-text'>{perd_nom}</div><div class='detail'>{perd_detail}</div></div>"
-        f"<div class='story-card'><h3>🏢 Departament amb millor puntuació</h3><div class='hero-text'>{dep_title}</div><div class='detail'>{dep_detail}</div></div>"
-        "</div>"
-        f"<div class='final-phrase'>“{frase}”</div>"
+        "<div class='champion-title'><div><h2>🏢 Podi de departaments</h2><p>Els tres departaments amb millor puntuació mitjana</p></div></div>"
+        f"<div class='story-grid'>{''.join(dept_cards)}</div>"
         "</div>"
     )
     st.markdown(html2, unsafe_allow_html=True)
 
-    mostrar_bloc_imatge_ia(
-        "imatge_últims",
-        "🏮 Fanalet vermell"
+    final_html = (
+        "<div class='champion-wrap'>"
+        "<div class='champion-title'><div><h2>🏁 Final del Mundial</h2><p>Resultat oficial de la final</p></div></div>"
+        "<div style='border-radius:28px;padding:34px 22px;text-align:center;background:linear-gradient(135deg,rgba(255,215,0,.25),rgba(255,255,255,.12));border:1px solid rgba(255,255,255,.24);'>"
+        "<div style='font-size:clamp(22px,3vw,36px);font-weight:950;color:#fff1a8;text-transform:uppercase;letter-spacing:2px;'>Marcador final</div>"
+        f"<div style='font-size:clamp(54px,9vw,122px);font-weight:1000;line-height:.95;color:white;text-shadow:0 8px 30px rgba(0,0,0,.42);margin-top:12px;'>{resultat_real}</div>"
+        "</div>"
+        "</div>"
     )
+    st.markdown(final_html, unsafe_allow_html=True)
+    mostrar_bloc_resum_visual_final()
 
-    premis = obtener_premis_especials if False else obtenir_premis_especials(df_final, df_departaments, df_porra, df_resultats_display)
+    premis = obtenir_premis_especials(df_final, df_departaments, df_porra, df_resultats_display)
     premis_html = "<div class='champion-wrap'><div class='champion-title'><div><h2>🎖 Premis especials</h2></div></div><div class='special-grid'>"
     for titol, nom, detall in premis:
         premis_html += f"<div class='special-card'><h3>{titol}</h3><div class='special-name'>{nom}</div><div class='special-detail'>{detall}</div></div>"
@@ -1805,39 +1834,8 @@ mostrar_estadistiques_prefinal(df_porra)
 mostrar_prediccions_resultat_final(df_porra)
 
 # --------------------------------------------------
-# MOVIMENTS DESTACATS (PUJADES I BAIXADES)
+# MOVIMENTS DESTACATS RETIRATS A LA V11.4.9
 # --------------------------------------------------
-if "Canvi posició" in df_ranking.columns:
-    max_p = df_ranking["Canvi posició"].max()
-    min_p = df_ranking["Canvi posició"].min()
-    
-    if pd.notna(max_p) and pd.notna(min_p) and (max_p > 0 or min_p < 0):
-        st.write("### 🎢 La muntanya russa de posicions")
-        html_mov = "<div class='card-grid-2'>"
-        
-        def format_noms(llista):
-            noms_reduits = [reduir_nom(nom) for nom in llista]
-            if len(noms_reduits) > 7:
-                return " · ".join(noms_reduits[:6]) + "..."
-            return " · ".join(noms_reduits)
-        
-        if max_p > 0:
-            pujadors = df_ranking[df_ranking["Canvi posició"] == max_p]["Participant"].tolist()
-            noms_p = format_noms(pujadors)
-            html_mov += f"<div class='card greencard'><h3>🚀 La gran remuntada</h3><h1 style='font-size: clamp(16px, 2vw, 24px); white-space: normal; line-height: 1.2; word-break: break-word;'>{noms_p}</h1><p>+{int(max_p)} posicions d'una tacada! 🔥</p></div>"
-        else:
-            html_mov += "<div class='card greencard'><h3>🚀 La gran remuntada</h3><h1>-</h1><p>Ningú ha guanyat posicions encara 🤷‍♂️</p></div>"
-            
-        if min_p < 0:
-            baixadors = df_ranking[df_ranking["Canvi posició"] == min_p]["Participant"].tolist()
-            noms_b = format_noms(baixadors)
-            html_mov += f"<div class='card redcard'><h3>📉 Caiguda lliure</h3><h1 style='font-size: clamp(16px, 2vw, 24px); white-space: normal; line-height: 1.2; word-break: break-word;'>{noms_b}</h1><p>{int(min_p)} posicions avall... 🥶🚑</p></div>"
-        else:
-            html_mov += "<div class='card redcard'><h3>📉 Caiguda lliure</h3><h1>-</h1><p>Tothom manté el tipus 🧘‍♂️</p></div>"
-            
-        html_mov += "</div>"
-        st.markdown(html_mov, unsafe_allow_html=True)
-
 
 # --------------------------------------------------
 # PODI DE DEPARTAMENTS LÍDERS
