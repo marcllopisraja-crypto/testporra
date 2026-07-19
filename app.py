@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 import altair as alt
 import base64
@@ -6,6 +7,7 @@ import os
 import json
 import unicodedata
 import re
+import html as html_lib
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -16,7 +18,7 @@ st.set_page_config(
     page_title="Porra Mundial",
     layout="wide"
 )
-# V11.4.7 CELEBRATION DELUXE BUILD
+# V11.4.8 CELEBRATION DELUXE JS BUILD
 
 EXCEL_FILE = "Porra_Mundial_Final_Definitiva.xlsx"
 BACKGROUND_IMAGE = "fifa-Trionda.jpg"
@@ -168,12 +170,12 @@ SNAPSHOT_META_FILE = "ranking_snapshot_meta.json"
 # V11.4.7 · CERIMÒNIA CELEBRATION DELUXE
 # --------------------------------------------------
 def mostrar_ceremonia_celebration_deluxe(df_ranking, num_participants):
-    """Bloc visible dins del flux de Streamlit: confeti, focs artificials i entrada tipus cerimònia."""
+    """V11.4.8: cerimònia visible dins un component HTML propi, amb confeti i focs artificials reals."""
     if df_ranking.empty:
         return
 
-    if not st.session_state.get("celebracio_deluxe_v1147_mostrada", False):
-        st.session_state["celebracio_deluxe_v1147_mostrada"] = True
+    if not st.session_state.get("celebracio_deluxe_v1148_mostrada", False):
+        st.session_state["celebracio_deluxe_v1148_mostrada"] = True
         st.balloons()
 
     df_final = df_ranking.copy().sort_values("Punts", ascending=False).reset_index(drop=True)
@@ -181,197 +183,133 @@ def mostrar_ceremonia_celebration_deluxe(df_ranking, num_participants):
     segon = df_final.iloc[1] if len(df_final) > 1 else None
     tercer = df_final.iloc[2] if len(df_final) > 2 else None
 
+    def esc(valor):
+        return html_lib.escape(str(valor))
+
     top_cards = []
     for medalla, row in [("🥇", guanyador), ("🥈", segon), ("🥉", tercer)]:
         if row is None:
             continue
         top_cards.append(
-            "<div class='deluxe-podium-card'>"
-            f"<div class='deluxe-medal'>{medalla}</div>"
-            f"<div class='deluxe-podium-name'>{row['Participant']}</div>"
-            f"<div class='deluxe-podium-points'>{float(row['Punts']):.1f} punts</div>"
+            "<div class='podium-card'>"
+            f"<div class='medal'>{medalla}</div>"
+            f"<div class='podium-name'>{esc(row['Participant'])}</div>"
+            f"<div class='podium-points'>{float(row['Punts']):.1f} punts</div>"
             "</div>"
         )
     top_html = "".join(top_cards)
-    confetti_html = "".join([f"<span class='deluxe-confetti dc{i}'></span>" for i in range(1, 33)])
-    fireworks_html = "".join([f"<span class='deluxe-firework df{i}'></span>" for i in range(1, 9)])
 
-    st.markdown(f"""
-    <style>
-    .deluxe-stage {{
-        position: relative;
-        overflow: hidden;
-        margin: 24px 0 34px 0;
-        min-height: 560px;
-        border-radius: 34px;
-        padding: 34px 28px;
-        color: white;
-        background:
-            radial-gradient(circle at 10% 10%, rgba(255, 214, 10, .42), transparent 28%),
-            radial-gradient(circle at 90% 20%, rgba(247, 37, 133, .28), transparent 26%),
-            radial-gradient(circle at 50% 92%, rgba(77, 171, 247, .30), transparent 30%),
-            linear-gradient(135deg, rgba(4, 18, 34, .98), rgba(7, 56, 102, .96) 48%, rgba(15, 113, 201, .88));
-        box-shadow: 0 22px 60px rgba(0,0,0,.36);
-        border: 1px solid rgba(255,255,255,.24);
-    }}
-    .deluxe-stage::before {{
-        content: "";
-        position: absolute;
-        inset: 0;
-        background: linear-gradient(120deg, transparent, rgba(255,255,255,.10), transparent);
-        animation: deluxeShine 5s ease-in-out infinite;
-        pointer-events: none;
-    }}
-    .deluxe-kicker {{
-        position: relative;
-        text-align: center;
-        font-weight: 1000;
-        letter-spacing: 4px;
-        text-transform: uppercase;
-        color: #fff1a8;
-        font-size: clamp(15px, 2vw, 21px);
-    }}
-    .deluxe-title {{
-        position: relative;
-        text-align: center;
-        margin-top: 10px;
-        line-height: .92;
-        font-weight: 1000;
-        letter-spacing: -2px;
-        font-size: clamp(42px, 7vw, 94px);
-        text-shadow: 0 8px 30px rgba(0,0,0,.42);
-        animation: deluxeTitlePop 1.2s cubic-bezier(.2,.9,.2,1) both;
-    }}
-    .deluxe-winner {{
-        position: relative;
-        text-align: center;
-        margin-top: 24px;
-        font-size: clamp(34px, 6vw, 78px);
-        font-weight: 1000;
-        color: #fff1a8;
-        text-shadow: 0 6px 23px rgba(0,0,0,.42);
-        animation: deluxePulse 2.2s ease-in-out infinite;
-    }}
-    .deluxe-points {{
-        position: relative;
-        text-align: center;
-        margin-top: 8px;
-        font-weight: 950;
-        font-size: clamp(24px, 3vw, 40px);
-    }}
-    .deluxe-meta {{
-        position: relative;
-        text-align: center;
-        margin: 16px auto 0 auto;
-        max-width: 760px;
-        padding: 12px 18px;
-        border-radius: 999px;
-        background: rgba(255,255,255,.13);
-        border: 1px solid rgba(255,255,255,.20);
-        color: rgba(255,255,255,.88);
-        font-weight: 800;
-    }}
-    .deluxe-winner-ribbon {{
-        position: relative;
-        margin: 24px auto 8px auto;
-        max-width: 680px;
-        text-align: center;
-        color: #fff1a8;
-        font-size: clamp(20px, 3vw, 34px);
-        font-weight: 1000;
-        letter-spacing: 3px;
-        padding: 12px 16px;
-        border-top: 2px solid rgba(255,241,168,.55);
-        border-bottom: 2px solid rgba(255,241,168,.55);
-    }}
-    .deluxe-podium {{
-        position: relative;
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 14px;
-        margin-top: 24px;
-    }}
-    .deluxe-podium-card {{
-        border-radius: 22px;
-        padding: 18px;
-        text-align: center;
-        background: rgba(255,255,255,.13);
-        border: 1px solid rgba(255,255,255,.23);
-        backdrop-filter: blur(8px);
-        box-shadow: inset 0 1px 0 rgba(255,255,255,.15);
-    }}
-    .deluxe-medal {{ font-size: 38px; }}
-    .deluxe-podium-name {{ margin-top: 8px; font-size: 20px; font-weight: 950; line-height: 1.1; }}
-    .deluxe-podium-points {{ margin-top: 6px; color: #fff1a8; font-weight: 900; }}
-    .deluxe-confetti {{
-        position: absolute;
-        top: -28px;
-        width: 10px;
-        height: 20px;
-        border-radius: 4px;
-        opacity: .96;
-        animation: deluxeConfetti 6.8s linear infinite;
-    }}
-    .deluxe-firework {{
-        position: absolute;
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: #fff1a8;
-        opacity: 0;
-        box-shadow: 0 -34px #ffd60a, 0 34px #4dabf7, 34px 0 #ff6b6b, -34px 0 #06d6a0, 24px 24px #f72585, -24px 24px #b8f2e6, 24px -24px #ff9f1c, -24px -24px #90dbf4;
-        animation: deluxeFirework 2.4s ease-out infinite;
-    }}
-    @keyframes deluxeConfetti {{
-        0% {{ transform: translateY(-40px) rotate(0deg); opacity: 0; }}
-        8% {{ opacity: 1; }}
-        88% {{ opacity: 1; }}
-        100% {{ transform: translateY(650px) rotate(820deg); opacity: 0; }}
-    }}
-    @keyframes deluxeFirework {{
-        0% {{ transform: scale(.25); opacity: 0; }}
-        18% {{ opacity: 1; }}
-        55% {{ transform: scale(1.3); opacity: 1; }}
-        100% {{ transform: scale(2.1); opacity: 0; }}
-    }}
-    @keyframes deluxePulse {{
-        0%, 100% {{ transform: scale(1); }}
-        50% {{ transform: scale(1.025); }}
-    }}
-    @keyframes deluxeTitlePop {{
-        0% {{ opacity: 0; transform: translateY(18px) scale(.94); }}
-        100% {{ opacity: 1; transform: translateY(0) scale(1); }}
-    }}
-    @keyframes deluxeShine {{
-        0% {{ transform: translateX(-120%); }}
-        100% {{ transform: translateX(120%); }}
-    }}
-    .dc1 {{ left: 3%; background:#ffd166; animation-delay:.0s; animation-duration:6.4s; }} .dc2 {{ left: 7%; background:#ef476f; animation-delay:.5s; animation-duration:7.1s; }} .dc3 {{ left: 11%; background:#06d6a0; animation-delay:1.0s; animation-duration:6.6s; }} .dc4 {{ left: 15%; background:#118ab2; animation-delay:.3s; animation-duration:7.6s; }}
-    .dc5 {{ left: 19%; background:#e9ff70; animation-delay:.9s; animation-duration:6.8s; }} .dc6 {{ left: 23%; background:#f72585; animation-delay:.2s; animation-duration:7.3s; }} .dc7 {{ left: 27%; background:#4dabf7; animation-delay:.8s; animation-duration:6.5s; }} .dc8 {{ left: 31%; background:#b8f2e6; animation-delay:.1s; animation-duration:7.7s; }}
-    .dc9 {{ left: 35%; background:#ff9f1c; animation-delay:1.1s; animation-duration:6.7s; }} .dc10 {{ left: 39%; background:#ff006e; animation-delay:.4s; animation-duration:7.4s; }} .dc11 {{ left: 43%; background:#8338ec; animation-delay:.95s; animation-duration:6.9s; }} .dc12 {{ left: 47%; background:#3a86ff; animation-delay:.2s; animation-duration:7.2s; }}
-    .dc13 {{ left: 51%; background:#fb5607; animation-delay:.75s; animation-duration:6.6s; }} .dc14 {{ left: 55%; background:#80ed99; animation-delay:1.25s; animation-duration:7.5s; }} .dc15 {{ left: 59%; background:#ffd166; animation-delay:.15s; animation-duration:6.8s; }} .dc16 {{ left: 63%; background:#ef476f; animation-delay:.65s; animation-duration:7.9s; }}
-    .dc17 {{ left: 67%; background:#06d6a0; animation-delay:1.05s; animation-duration:6.4s; }} .dc18 {{ left: 71%; background:#4dabf7; animation-delay:.35s; animation-duration:7.3s; }} .dc19 {{ left: 75%; background:#ffd60a; animation-delay:.85s; animation-duration:6.7s; }} .dc20 {{ left: 79%; background:#ff595e; animation-delay:.05s; animation-duration:7.8s; }}
-    .dc21 {{ left: 83%; background:#8ac926; animation-delay:.55s; animation-duration:6.9s; }} .dc22 {{ left: 87%; background:#1982c4; animation-delay:1.15s; animation-duration:7.4s; }} .dc23 {{ left: 91%; background:#ffca3a; animation-delay:.45s; animation-duration:6.5s; }} .dc24 {{ left: 95%; background:#b5179e; animation-delay:.95s; animation-duration:7.6s; }}
-    .dc25 {{ left: 5%; background:#90dbf4; animation-delay:1.35s; animation-duration:7.0s; }} .dc26 {{ left: 29%; background:#f72585; animation-delay:1.45s; animation-duration:6.5s; }} .dc27 {{ left: 49%; background:#ffd166; animation-delay:1.55s; animation-duration:7.1s; }} .dc28 {{ left: 69%; background:#06d6a0; animation-delay:1.65s; animation-duration:6.8s; }}
-    .dc29 {{ left: 88%; background:#4dabf7; animation-delay:1.75s; animation-duration:7.2s; }} .dc30 {{ left: 14%; background:#ff9f1c; animation-delay:1.85s; animation-duration:6.6s; }} .dc31 {{ left: 57%; background:#8338ec; animation-delay:1.95s; animation-duration:7.0s; }} .dc32 {{ left: 97%; background:#ff006e; animation-delay:2.05s; animation-duration:6.9s; }}
-    .df1 {{ left: 10%; top: 16%; animation-delay: .1s; }} .df2 {{ left: 80%; top: 18%; animation-delay: .45s; }} .df3 {{ left: 25%; top: 42%; animation-delay: .9s; }} .df4 {{ left: 65%; top: 44%; animation-delay: 1.25s; }}
-    .df5 {{ left: 46%; top: 13%; animation-delay: 1.65s; }} .df6 {{ left: 88%; top: 56%; animation-delay: 2.05s; }} .df7 {{ left: 16%; top: 58%; animation-delay: 2.45s; }} .df8 {{ left: 54%; top: 60%; animation-delay: 2.85s; }}
-    @media (max-width: 900px) {{ .deluxe-podium {{ grid-template-columns: 1fr; }} .deluxe-stage {{ min-height: 680px; }} }}
-    </style>
-    <div class='deluxe-stage'>
-        {confetti_html}
-        {fireworks_html}
-        <div class='deluxe-kicker'>Cerimònia de clausura</div>
-        <div class='deluxe-title'>PORRA MUNDIAL 2026</div>
-        <div class='deluxe-winner'>{guanyador['Participant']}</div>
-        <div class='deluxe-points'>{float(guanyador['Punts']):.1f} punts</div>
-        <div class='deluxe-winner-ribbon'>════════ WINNER 2026 ════════</div>
-        <div class='deluxe-meta'>🥇 1a posició · {num_participants} participants · Celebració final</div>
-        <div class='deluxe-podium'>{top_html}</div>
-    </div>
-    """, unsafe_allow_html=True)
+    winner = esc(guanyador["Participant"])
+    points = f"{float(guanyador['Punts']):.1f}"
+    participants = str(num_participants)
 
-
+    html_template = """
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset='utf-8'>
+<style>
+html, body { margin: 0; padding: 0; background: transparent; font-family: Inter, Montserrat, Arial, sans-serif; overflow: hidden; }
+.stage {
+  position: relative;
+  width: 100%;
+  height: 700px;
+  overflow: hidden;
+  border-radius: 32px;
+  color: #fff;
+  background:
+    radial-gradient(circle at 12% 12%, rgba(255, 214, 10, .45), transparent 24%),
+    radial-gradient(circle at 86% 16%, rgba(247, 37, 133, .35), transparent 26%),
+    radial-gradient(circle at 50% 92%, rgba(77, 171, 247, .32), transparent 30%),
+    linear-gradient(135deg, rgba(4, 18, 34, .99), rgba(7, 56, 102, .97) 48%, rgba(15, 113, 201, .92));
+  border: 1px solid rgba(255,255,255,.24);
+  box-shadow: 0 22px 60px rgba(0,0,0,.38);
+}
+.stage:before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent, rgba(255,255,255,.12), transparent);
+  animation: shine 4.6s ease-in-out infinite;
+}
+canvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; }
+.content { position: relative; z-index: 4; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 28px; box-sizing: border-box; }
+.kicker { color: #fff1a8; text-transform: uppercase; font-size: clamp(15px, 2vw, 22px); font-weight: 1000; letter-spacing: 5px; }
+.title { margin-top: 10px; font-weight: 1000; letter-spacing: -2px; line-height: .92; font-size: clamp(42px, 7vw, 96px); text-shadow: 0 8px 30px rgba(0,0,0,.50); animation: titlePop 1.1s cubic-bezier(.2,.9,.2,1) both; }
+.winner { margin-top: 28px; color: #fff1a8; font-weight: 1000; line-height: .98; font-size: clamp(36px, 6vw, 80px); text-shadow: 0 8px 30px rgba(0,0,0,.45); animation: pulse 2.1s ease-in-out infinite; }
+.points { margin-top: 12px; font-size: clamp(26px, 3.4vw, 44px); font-weight: 1000; }
+.ribbon { margin: 22px auto 12px auto; color: #fff1a8; font-size: clamp(20px, 3vw, 34px); font-weight: 1000; letter-spacing: 4px; padding: 12px 20px; border-top: 2px solid rgba(255,241,168,.65); border-bottom: 2px solid rgba(255,241,168,.65); }
+.meta { padding: 11px 18px; border-radius: 999px; background: rgba(255,255,255,.13); border: 1px solid rgba(255,255,255,.22); font-weight: 850; color: rgba(255,255,255,.9); }
+.podium { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; width: min(920px, 100%); margin-top: 22px; }
+.podium-card { border-radius: 22px; padding: 16px; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.24); backdrop-filter: blur(8px); }
+.medal { font-size: 36px; }
+.podium-name { margin-top: 6px; font-size: 20px; font-weight: 950; line-height: 1.1; }
+.podium-points { margin-top: 5px; color: #fff1a8; font-weight: 900; }
+.firework { position: absolute; width: 8px; height: 8px; border-radius: 50%; background: #fff1a8; opacity: 0; z-index: 2; box-shadow: 0 -34px #ffd60a, 0 34px #4dabf7, 34px 0 #ff6b6b, -34px 0 #06d6a0, 24px 24px #f72585, -24px 24px #b8f2e6, 24px -24px #ff9f1c, -24px -24px #90dbf4; animation: explode 2.4s ease-out infinite; }
+.f1 { left: 10%; top: 16%; animation-delay: .1s; } .f2 { left: 80%; top: 18%; animation-delay: .45s; } .f3 { left: 25%; top: 42%; animation-delay: .9s; } .f4 { left: 65%; top: 44%; animation-delay: 1.25s; }
+.f5 { left: 46%; top: 13%; animation-delay: 1.65s; } .f6 { left: 88%; top: 56%; animation-delay: 2.05s; } .f7 { left: 16%; top: 58%; animation-delay: 2.45s; } .f8 { left: 54%; top: 60%; animation-delay: 2.85s; }
+@keyframes explode { 0% { transform: scale(.25); opacity: 0; } 18% { opacity: 1; } 55% { transform: scale(1.3); opacity: 1; } 100% { transform: scale(2.1); opacity: 0; } }
+@keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.025); } }
+@keyframes titlePop { 0% { opacity:0; transform: translateY(20px) scale(.94); } 100% { opacity:1; transform: translateY(0) scale(1); } }
+@keyframes shine { 0% { transform: translateX(-120%); } 100% { transform: translateX(120%); } }
+@media (max-width: 900px) { .stage { height: 840px; } .podium { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class='stage'>
+  <canvas id='confetti'></canvas>
+  <span class='firework f1'></span><span class='firework f2'></span><span class='firework f3'></span><span class='firework f4'></span>
+  <span class='firework f5'></span><span class='firework f6'></span><span class='firework f7'></span><span class='firework f8'></span>
+  <div class='content'>
+    <div class='kicker'>Cerimònia de clausura</div>
+    <div class='title'>PORRA MUNDIAL 2026</div>
+    <div class='winner'>__WINNER__</div>
+    <div class='points'>__POINTS__ punts</div>
+    <div class='ribbon'>════════ WINNER 2026 ════════</div>
+    <div class='meta'>🥇 1a posició · __PARTICIPANTS__ participants · Celebració final</div>
+    <div class='podium'>__TOPHTML__</div>
+  </div>
+</div>
+<script>
+const canvas = document.getElementById('confetti');
+const ctx = canvas.getContext('2d');
+let W, H;
+function resize(){ W = canvas.width = canvas.offsetWidth; H = canvas.height = canvas.offsetHeight; }
+window.addEventListener('resize', resize); resize();
+const colors = ['#ffd166','#ef476f','#06d6a0','#118ab2','#f72585','#4dabf7','#ff9f1c','#e9ff70','#8338ec','#ff006e'];
+const pieces = Array.from({length: 170}, () => ({
+  x: Math.random() * W,
+  y: -Math.random() * H,
+  w: 6 + Math.random() * 9,
+  h: 10 + Math.random() * 16,
+  c: colors[Math.floor(Math.random() * colors.length)],
+  s: 1.4 + Math.random() * 3.8,
+  r: Math.random() * Math.PI,
+  vr: (Math.random() - .5) * .22,
+  drift: (Math.random() - .5) * 1.2
+}));
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  for(const p of pieces){
+    p.y += p.s; p.x += p.drift; p.r += p.vr;
+    if(p.y > H + 30){ p.y = -30; p.x = Math.random() * W; }
+    if(p.x < -30) p.x = W + 30; if(p.x > W + 30) p.x = -30;
+    ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.r); ctx.fillStyle=p.c; ctx.fillRect(-p.w/2,-p.h/2,p.w,p.h); ctx.restore();
+  }
+  requestAnimationFrame(draw);
+}
+draw();
+</script>
+</body>
+</html>
+"""
+    html_doc = (html_template
+        .replace("__WINNER__", winner)
+        .replace("__POINTS__", points)
+        .replace("__PARTICIPANTS__", participants)
+        .replace("__TOPHTML__", top_html)
+    )
+    components.html(html_doc, height=730, scrolling=False)
 # --------------------------------------------------
 # CONFIGURACIÓ DE PUNTS MÀXIMS
 # --------------------------------------------------
@@ -1859,6 +1797,8 @@ st.markdown(f"<div class='card-grid-3'><div class='card darkcard'><h3>🕒 Dades
 # --------------------------------------------------
 # V11.4.2 · DASHBOARD PREMIUM NET
 # --------------------------------------------------
+mostrar_ceremonia_celebration_deluxe(df_ranking, num_participants)
+
 mostrar_dashboard_campio_premium(df_ranking, df_departaments, df_porra, preparar_taula_buida(df_resultats))
 
 mostrar_estadistiques_prefinal(df_porra)
