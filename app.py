@@ -16,6 +16,7 @@ st.set_page_config(
     page_title="Porra Mundial",
     layout="wide"
 )
+# V11.4.2 CLEAN BUILD
 
 EXCEL_FILE = "Porra_Mundial_Final_Definitiva.xlsx"
 BACKGROUND_IMAGE = "fifa-Trionda.jpg"
@@ -428,21 +429,35 @@ def valor_numeric_fila(df_j, columna):
     return 0.0 if pd.isna(valor) else float(valor)
 
 def obtenir_evolucio_punts_ronda(df_j):
-    grups = (
-        valor_numeric_fila(df_j, "Punts Grups 1r") +
-        valor_numeric_fila(df_j, "Punts Grups 2n") +
-        valor_numeric_fila(df_j, "Punts Grups 3r")
-    )
+    def num(*candidats):
+        if df_j.empty:
+            return 0.0
+        mapa = {normalitzar_text(c): c for c in df_j.columns}
+        for cand in candidats:
+            key = normalitzar_text(cand)
+            if key in mapa:
+                valor = pd.to_numeric(df_j[mapa[key]].values[0], errors="coerce")
+                return 0.0 if pd.isna(valor) else float(valor)
+        for cand in candidats:
+            tokens = [t for t in normalitzar_text(cand).split() if t]
+            for col in df_j.columns:
+                col_norm = normalitzar_text(col)
+                if tokens and all(t in col_norm for t in tokens):
+                    valor = pd.to_numeric(df_j[col].values[0], errors="coerce")
+                    return 0.0 if pd.isna(valor) else float(valor)
+        return 0.0
+
+    grups = num("Punts Grups 1r") + num("Punts Grups 2n") + num("Punts Grups 3r")
     punts_rondes = [
         ("Grups", grups),
-        ("Vuitens", valor_numeric_fila(df_j, "Punts Vuitens")),
-        ("Quarts", valor_numeric_fila(df_j, "Punts Quarts")),
-        ("Semis", valor_numeric_fila(df_j, "Punts Semis")),
-        ("Finalistes", valor_numeric_fila(df_j, "Punts Finalistes")),
-        ("Campió", valor_numeric_fila(df_j, "Punts Campió")),
-        ("Resultat final", valor_numeric_fila(df_j, "Punts Resultat Final")),
-        ("MVP", valor_numeric_fila(df_j, "Punts MVP")),
-        ("Bota d'Or", valor_numeric_fila(df_j, "Punts Pichichi")),
+        ("Vuitens", num("Punts Vuitens")),
+        ("Quarts", num("Punts Quarts")),
+        ("Semis", num("Punts Semis")),
+        ("Finalistes", num("Punts Finalistes")),
+        ("Campió", num("Punts Campió", "Punts Campio")),
+        ("Resultat final", num("Punts Resultat Final", "Punts Resultat final", "Resultat final punts")),
+        ("MVP", num("Punts MVP")),
+        ("Bota d'Or", num("Punts Pichichi", "Punts Bota d'Or", "Punts Bota dOr", "Punts Bota")),
     ]
     acumulat = 0.0
     files = []
@@ -450,11 +465,15 @@ def obtenir_evolucio_punts_ronda(df_j):
         punts = 0.0 if pd.isna(punts) else float(punts)
         acumulat += punts
         files.append({"Ronda": ronda, "Punts ronda": round(punts, 1), "Acumulat": round(acumulat, 1)})
-    total_excel = valor_numeric_fila(df_j, "Total Punts")
-    if total_excel and abs(total_excel - acumulat) > 0.05:
-        files.append({"Ronda": "Total Excel", "Punts ronda": round(total_excel - acumulat, 1), "Acumulat": round(total_excel, 1)})
-    return pd.DataFrame(files)
 
+    total_excel = num("Total Punts", "Punts totals", "Total")
+    if total_excel:
+        if abs(total_excel - acumulat) > 0.05:
+            diff = total_excel - acumulat
+            files.append({"Ronda": "Total final", "Punts ronda": round(diff, 1), "Acumulat": round(total_excel, 1)})
+        else:
+            files.append({"Ronda": "Total final", "Punts ronda": 0.0, "Acumulat": round(total_excel, 1)})
+    return pd.DataFrame(files)
 def mostrar_evolucio_punts_ronda(df_j):
     st.write("### 📈 Evolució de punts per ronda")
     df_evo = obtenir_evolucio_punts_ronda(df_j)
@@ -491,8 +510,6 @@ def obtenir_evolucio_tots_participants(df_porra):
             continue
         for _, evo in df_evo.iterrows():
             ronda = str(evo.get("Ronda", ""))
-            if ronda == "Total Excel":
-                continue
             files.append({"Participant": participant, "Participant curt": reduir_nom(participant), "Ronda": ronda, "Punts acumulats": float(evo.get("Acumulat", 0))})
     return pd.DataFrame(files)
 
@@ -502,7 +519,7 @@ def mostrar_evolucio_tots_participants(df_porra):
     if df_evo.empty:
         st.info("No hi ha dades suficients per mostrar l’evolució de punts per ronda.")
         return
-    ordre = ["Grups", "Vuitens", "Quarts", "Semis", "Finalistes", "Campió", "Resultat final", "MVP", "Bota d'Or"]
+    ordre = ["Grups", "Vuitens", "Quarts", "Semis", "Finalistes", "Campió", "Resultat final", "MVP", "Bota d'Or", "Total final"]
     rondes_existents = [r for r in ordre if r in df_evo["Ronda"].unique()]
     ordre_llegenda = df_evo.groupby("Participant curt", as_index=False)["Punts acumulats"].max().sort_values("Punts acumulats", ascending=False)["Participant curt"].tolist()
     max_punts = float(df_evo["Punts acumulats"].max()) if not df_evo.empty else 40.0
@@ -543,8 +560,6 @@ def obtenir_evolucio_departaments(df_porra):
         df_evo = obtenir_evolucio_punts_ronda(df_j)
         for _, evo in df_evo.iterrows():
             ronda = str(evo.get("Ronda", ""))
-            if ronda == "Total Excel":
-                continue
             files.append({"Departament": departament, "Ronda": ronda, "Punts acumulats": float(evo.get("Acumulat", 0))})
     if not files:
         return pd.DataFrame()
@@ -557,7 +572,7 @@ def mostrar_evolucio_departaments(df_porra):
     if df_dep_evo.empty:
         st.info("No hi ha dades suficients per mostrar l’evolució per departaments.")
         return
-    ordre = ["Grups", "Vuitens", "Quarts", "Semis", "Finalistes", "Campió", "Resultat final", "MVP", "Bota d'Or"]
+    ordre = ["Grups", "Vuitens", "Quarts", "Semis", "Finalistes", "Campió", "Resultat final", "MVP", "Bota d'Or", "Total final"]
     rondes_existents = [r for r in ordre if r in df_dep_evo["Ronda"].unique()]
     deps = df_dep_evo.groupby("Departament", as_index=False)["Punts acumulats"].max().sort_values("Punts acumulats", ascending=False)["Departament"].tolist()
     max_punts = float(df_dep_evo["Punts acumulats"].max()) if not df_dep_evo.empty else 40.0
@@ -1092,17 +1107,19 @@ def mostrar_dashboard_campio_premium(df_ranking, df_departaments, df_porra, df_r
     tercer = df_final.iloc[2] if len(df_final) > 2 else None
     diff_seg = float(guanyador["Punts"] - segon["Punts"]) if segon is not None else 0.0
 
-    podi_html = ""
+    podi_cards = []
     for medalla, row in [("🥇", guanyador), ("🥈", segon), ("🥉", tercer)]:
-        if row is not None:
-            dep = f" · {row.get('Departament', '')}" if "Departament" in row.index and str(row.get('Departament', '')).strip() else ""
-            podi_html += f"""
-            <div class='podium-card'>
-                <div class='podium-medal'>{medalla}</div>
-                <div><div class='podium-name'>{row['Participant']}</div><div class='podium-meta'>{dep}</div></div>
-                <div class='podium-score'>{float(row['Punts']):.1f}</div>
-            </div>
-            """
+        if row is None:
+            continue
+        dep = f" · {row.get('Departament', '')}" if "Departament" in row.index and str(row.get('Departament', '')).strip() else ""
+        podi_cards.append(
+            "<div class='podium-card'>"
+            f"<div class='podium-medal'>{medalla}</div>"
+            f"<div><div class='podium-name'>{row['Participant']}</div><div class='podium-meta'>{dep}</div></div>"
+            f"<div class='podium-score'>{float(row['Punts']):.1f}</div>"
+            "</div>"
+        )
+    podi_html = "".join(podi_cards)
 
     df_tend, resum = preparar_tendencia_resultat_final(df_porra) if 'preparar_tendencia_resultat_final' in globals() else (pd.DataFrame(), {})
     esp = int(resum.get("espanya", 0)) if isinstance(resum, dict) else 0
@@ -1136,43 +1153,41 @@ def mostrar_dashboard_campio_premium(df_ranking, df_departaments, df_porra, df_r
     bota_txt = f"{pichichi_real} ({gols_pichichi})" if gols_pichichi != "Pendent" else pichichi_real
     frase = generar_frase_final(df_final, df_departaments, df_porra, df_resultats_display)
 
-    st.markdown(f"""
-    <div class='champion-wrap'>
-        <div class='champion-title'>
-            <div>
-                <h2>🏆 Celebració del campió</h2>
-                <p>Dashboard final premium de la Porra Mundial 2026</p>
-            </div>
-            <div class='champion-badge'>V11.4 · FINAL MODE</div>
-        </div>
-        <div class='champion-grid'>
-            <div class='champion-hero'>
-                <div class='champion-kicker'>Campió absolut</div>
-                <div class='champion-name'>{guanyador['Participant']}</div>
-                <div class='champion-points'>{float(guanyador['Punts']):.1f} punts</div>
-                <div class='champion-diff'>+{diff_seg:.1f} respecte al segon classificat</div>
-            </div>
-            <div class='podium-grid'>{podi_html}</div>
-        </div>
-        <div class='premium-kpi-grid'>
-            <div class='premium-kpi'><h3>🇪🇸 Victòria Espanya</h3><div class='big'>{esp}</div><div class='small'>apostes</div></div>
-            <div class='premium-kpi'><h3>🇦🇷 Victòria Argentina</h3><div class='big'>{arg}</div><div class='small'>apostes</div></div>
-            <div class='premium-kpi'><h3>🤝 Empat</h3><div class='big'>{emp}</div><div class='small'>apostes</div></div>
-            <div class='premium-kpi'><h3>🎯 Resultat més apostat</h3><div class='big'>{res_top}</div><div class='small'>{res_top_total} participants</div></div>
-        </div>
-        <div class='story-grid'>
-            <div class='story-card'><h3>🚀 Remuntada del Mundial</h3><div class='hero-text'>{rem_html}</div><div class='detail'>{rem_detail}</div></div>
-            <div class='story-card'><h3>🔦 Fanalet vermell</h3><div class='hero-text'>{fanalet_html}</div><div class='detail'>{fanalet_detail}</div></div>
-            <div class='story-card'><h3>🏢 Departament campió</h3><div class='hero-text'>{dep_title}</div><div class='detail'>{dep_detail}</div></div>
-        </div>
-        <div class='story-grid'>
-            <div class='story-card'><h3>🏆 Campió real</h3><div class='hero-text'>{campio_real}</div><div class='detail'>Resultat final: {resultat_real}</div></div>
-            <div class='story-card'><h3>⭐ MVP</h3><div class='hero-text'>{mvp_real}</div><div class='detail'>Moment clau del torneig</div></div>
-            <div class='story-card'><h3>⚽ Bota d'Or</h3><div class='hero-text'>{bota_txt}</div><div class='detail'>Màxim golejador registrat</div></div>
-        </div>
-        <div class='final-phrase'>“{frase}”</div>
-    </div>
-    """, unsafe_allow_html=True)
+    html = (
+        "<div class='champion-wrap'>"
+        "<div class='champion-title'>"
+        "<div><h2>🏆 Celebració del campió</h2><p>Dashboard final premium de la Porra Mundial 2026</p></div>"
+        "<div class='champion-badge'>V11.4.2 · CLEAN FINAL MODE</div>"
+        "</div>"
+        "<div class='champion-grid'>"
+        "<div class='champion-hero'>"
+        "<div class='champion-kicker'>Campió absolut</div>"
+        f"<div class='champion-name'>{guanyador['Participant']}</div>"
+        f"<div class='champion-points'>{float(guanyador['Punts']):.1f} punts</div>"
+        f"<div class='champion-diff'>+{diff_seg:.1f} respecte al segon classificat</div>"
+        "</div>"
+        f"<div class='podium-grid'>{podi_html}</div>"
+        "</div>"
+        "<div class='premium-kpi-grid'>"
+        f"<div class='premium-kpi'><h3>🇪🇸 Victòria Espanya</h3><div class='big'>{esp}</div><div class='small'>apostes</div></div>"
+        f"<div class='premium-kpi'><h3>🇦🇷 Victòria Argentina</h3><div class='big'>{arg}</div><div class='small'>apostes</div></div>"
+        f"<div class='premium-kpi'><h3>🤝 Empat</h3><div class='big'>{emp}</div><div class='small'>apostes</div></div>"
+        f"<div class='premium-kpi'><h3>🎯 Resultat més apostat</h3><div class='big'>{res_top}</div><div class='small'>{res_top_total} participants</div></div>"
+        "</div>"
+        "<div class='story-grid'>"
+        f"<div class='story-card'><h3>🚀 Remuntada del Mundial</h3><div class='hero-text'>{rem_html}</div><div class='detail'>{rem_detail}</div></div>"
+        f"<div class='story-card'><h3>🔦 Fanalet vermell</h3><div class='hero-text'>{fanalet_html}</div><div class='detail'>{fanalet_detail}</div></div>"
+        f"<div class='story-card'><h3>🏢 Departament campió</h3><div class='hero-text'>{dep_title}</div><div class='detail'>{dep_detail}</div></div>"
+        "</div>"
+        "<div class='story-grid'>"
+        f"<div class='story-card'><h3>🏆 Campió real</h3><div class='hero-text'>{campio_real}</div><div class='detail'>Resultat final: {resultat_real}</div></div>"
+        f"<div class='story-card'><h3>⭐ MVP</h3><div class='hero-text'>{mvp_real}</div><div class='detail'>Moment clau del torneig</div></div>"
+        f"<div class='story-card'><h3>⚽ Bota d'Or</h3><div class='hero-text'>{bota_txt}</div><div class='detail'>Màxim golejador registrat</div></div>"
+        "</div>"
+        f"<div class='final-phrase'>“{frase}”</div>"
+        "</div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
 
     encerts = preparar_qui_la_va_clavar(df_porra, df_resultats_display)
     if not encerts.empty:
@@ -1180,7 +1195,6 @@ def mostrar_dashboard_campio_premium(df_ranking, df_departaments, df_porra, df_r
         st.dataframe(encerts.head(15), use_container_width=True, hide_index=True, column_config={
             "Distància": st.column_config.NumberColumn("Distància", format="%d"),
         })
-
 # --------------------------------------------------
 # ESTILS + FONS
 # --------------------------------------------------
@@ -1345,6 +1359,10 @@ st.markdown(f"<div class='card-grid-3'><div class='card darkcard'><h3>🕒 Dades
 # --------------------------------------------------
 # --------------------------------------------------
 # V11.4 · DASHBOARD PREMIUM DEL CAMPIÓ
+# --------------------------------------------------
+
+# --------------------------------------------------
+# V11.4.2 · DASHBOARD PREMIUM NET
 # --------------------------------------------------
 mostrar_dashboard_campio_premium(df_ranking, df_departaments, df_porra, preparar_taula_buida(df_resultats))
 
