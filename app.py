@@ -1343,6 +1343,11 @@ st.markdown(f"<div class='card-grid-3'><div class='card darkcard'><h3>🕒 Dades
 # --------------------------------------------------
 # V11.2 · DASHBOARD PRE-FINAL AL PRINCIPI
 # --------------------------------------------------
+# --------------------------------------------------
+# V11.4 · DASHBOARD PREMIUM DEL CAMPIÓ
+# --------------------------------------------------
+mostrar_dashboard_campio_premium(df_ranking, df_departaments, df_porra, preparar_taula_buida(df_resultats))
+
 mostrar_estadistiques_prefinal(df_porra)
 mostrar_prediccions_resultat_final(df_porra)
 
