@@ -1619,26 +1619,7 @@ def mostrar_dashboard_campio_premium(df_ranking, df_departaments, df_porra, df_r
     # --------------------------------------------------
     # V11.4.12 · ESPAI FANALET VERMELL
     # --------------------------------------------------
-    if not df_final.empty and "Punts" in df_final.columns:
-        min_punts = pd.to_numeric(df_final["Punts"], errors="coerce").min()
-        fanalets = df_final[pd.to_numeric(df_final["Punts"], errors="coerce") == min_punts].copy()
-        noms_fanalet = " · ".join(fanalets["Participant"].dropna().astype(str).tolist()) if "Participant" in fanalets.columns else "Pendent"
-        deps_fanalet = ""
-        if "Departament" in fanalets.columns:
-            deps = [str(d) for d in fanalets["Departament"].dropna().astype(str).unique() if str(d).strip()]
-            deps_fanalet = " · " + " · ".join(deps) if deps else ""
-
-        fanalet_html = (
-            "<div class='champion-wrap'>"
-            "<div class='champion-title'><div><h2>🔦 Fanalet vermell</h2><p>Espai de tancament de la classificació final</p></div></div>"
-            "<div style='border-radius:28px;padding:32px 22px;text-align:center;background:linear-gradient(135deg,rgba(255,104,91,.26),rgba(255,255,255,.10));border:1px solid rgba(255,255,255,.24);box-shadow:inset 0 1px 0 rgba(255,255,255,.15);'>"
-            "<div style='font-size:clamp(44px,6vw,82px);line-height:1;'>🔦</div>"
-            f"<div style='font-size:clamp(30px,4.4vw,60px);font-weight:1000;color:white;line-height:1.05;margin-top:10px;text-shadow:0 7px 26px rgba(0,0,0,.36);'>{noms_fanalet}</div>"
-            f"<div style='font-size:clamp(20px,2.5vw,34px);font-weight:950;color:#fff1a8;margin-top:12px;'>{float(min_punts):.1f} punts</div>"
-            f"<div style='font-size:16px;font-weight:800;color:rgba(255,255,255,.86);margin-top:8px;'>{deps_fanalet}</div>"
-            "</div>"
-            "</div>"
-        )
+   
         st.markdown(fanalet_html, unsafe_allow_html=True)
         mostrar_bloc_imatge_ia(
             "imatge_fanalet",
