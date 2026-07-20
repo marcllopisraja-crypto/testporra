@@ -1616,15 +1616,14 @@ def mostrar_dashboard_campio_premium(df_ranking, df_departaments, df_porra, df_r
     )
 
 
-    # --------------------------------------------------
-    # V11.4.12 · ESPAI FANALET VERMELL
-    # --------------------------------------------------
-   
-     
-        mostrar_bloc_imatge_ia(
-            "imatge_fanalet",
-            "🔦 Fanalet vermell"
-        )
+# --------------------------------------------------
+# FANALET VERMELL (NOMÉS IMATGE)
+# --------------------------------------------------
+
+mostrar_bloc_imatge_ia(
+    "imatge_fanalet",
+    "🔦 El Fanalet Vermell"
+)
 
     dept_cards = []
     if df_departaments is not None and not df_departaments.empty:
