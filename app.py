@@ -1620,7 +1620,7 @@ def mostrar_dashboard_campio_premium(df_ranking, df_departaments, df_porra, df_r
     # V11.4.12 · ESPAI FANALET VERMELL
     # --------------------------------------------------
    
-        st.markdown(fanalet_html, unsafe_allow_html=True)
+     
         mostrar_bloc_imatge_ia(
             "imatge_fanalet",
             "🔦 Fanalet vermell"
