@@ -1615,15 +1615,16 @@ def mostrar_dashboard_campio_premium(df_ranking, df_departaments, df_porra, df_r
         "🥇🥈🥉 Els tres primers classificats"
     )
 
-
 # --------------------------------------------------
 # FANALET VERMELL (NOMÉS IMATGE)
 # --------------------------------------------------
 
-mostrar_bloc_imatge_ia(
-    "imatge_fanalet",
-    "🔦 El Fanalet Vermell"
-)
+path = trobar_imatge_ia("imatge_fanalet")
+
+if path:
+    st.image(path, use_container_width=True)
+else:
+    st.info("Puja un fitxer anomenat imatge_fanalet.png")
 
     dept_cards = []
     if df_departaments is not None and not df_departaments.empty:
