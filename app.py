@@ -1,5 +1,4 @@
 import streamlit as st
-import streamlit.components.v1 as components
 import pandas as pd
 import altair as alt
 import base64
@@ -7,7 +6,6 @@ import os
 import json
 import unicodedata
 import re
-import html as html_lib
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -18,298 +16,17 @@ st.set_page_config(
     page_title="Porra Mundial",
     layout="wide"
 )
-# V11.4.9 FINAL + TOP DEPARTAMENTS BUILD
+# V11.4.2 CLEAN BUILD
 
 EXCEL_FILE = "Porra_Mundial_Final_Definitiva.xlsx"
 BACKGROUND_IMAGE = "fifa-Trionda.jpg"
 LOGO_IMAGE = "Logo RGB fondo transparente letra negra Constraula.png"
 PREU_PARTICIPACIO = 5
 
-# --------------------------------------------------
-# V11.4.6 · ANIMACIÓ INICIAL DE CELEBRACIÓ
-# --------------------------------------------------
-def mostrar_animacio_celebracio_inicial():
-    """Mostra confeti i focs artificials una sola vegada per sessió."""
-    if st.session_state.get("celebracio_inicial_v1146_mostrada", False):
-        return
-    st.session_state["celebracio_inicial_v1146_mostrada"] = True
-
-    # Efecte nadiu de Streamlit
-    st.balloons()
-
-    confeti = "".join([
-        f"<span class='confetti-piece c{i}'></span>" for i in range(1, 25)
-    ])
-    fireworks = "".join([
-        f"<span class='firework f{i}'></span>" for i in range(1, 8)
-    ])
-
-    st.markdown(f"""
-    <style>
-    .celebration-overlay {{
-        position: fixed;
-        inset: 0;
-        pointer-events: none;
-        z-index: 999999;
-        overflow: hidden;
-        animation: celebrationFadeOut 8.5s ease forwards;
-    }}
-    .celebration-title {{
-        position: absolute;
-        top: 7%;
-        left: 50%;
-        transform: translateX(-50%);
-        padding: 14px 24px;
-        border-radius: 999px;
-        background: rgba(8, 52, 92, 0.78);
-        border: 1px solid rgba(255,255,255,0.30);
-        color: white;
-        font-weight: 1000;
-        font-size: clamp(24px, 4vw, 48px);
-        text-shadow: 0 4px 18px rgba(0,0,0,0.45);
-        box-shadow: 0 16px 40px rgba(0,0,0,0.30);
-        backdrop-filter: blur(8px);
-        animation: titlePop 1.2s ease both;
-        white-space: nowrap;
-    }}
-    .confetti-piece {{
-        position: absolute;
-        top: -12vh;
-        width: 12px;
-        height: 22px;
-        border-radius: 4px;
-        opacity: 0.95;
-        animation-name: confettiFall;
-        animation-timing-function: linear;
-        animation-fill-mode: forwards;
-    }}
-    .firework {{
-        position: absolute;
-        width: 9px;
-        height: 9px;
-        border-radius: 50%;
-        background: #fff1a8;
-        box-shadow:
-            0 0 0 0 rgba(255, 241, 168, 0.90),
-            25px 0 0 0 #ffd166,
-            -25px 0 0 0 #06d6a0,
-            0 25px 0 0 #4dabf7,
-            0 -25px 0 0 #ff6b6b,
-            18px 18px 0 0 #f72585,
-            -18px 18px 0 0 #b8f2e6,
-            18px -18px 0 0 #ffd60a,
-            -18px -18px 0 0 #90dbf4;
-        opacity: 0;
-        animation: fireworkExplode 2.1s ease-out infinite;
-    }}
-    @keyframes confettiFall {{
-        0% {{ transform: translateY(-12vh) rotate(0deg); opacity: 1; }}
-        82% {{ opacity: 1; }}
-        100% {{ transform: translateY(112vh) rotate(720deg); opacity: 0; }}
-    }}
-    @keyframes fireworkExplode {{
-        0% {{ transform: scale(0.2); opacity: 0; box-shadow: 0 0 0 0 rgba(255,255,255,0.90); }}
-        18% {{ opacity: 1; }}
-        55% {{ transform: scale(1.25); opacity: 1; }}
-        100% {{ transform: scale(1.95); opacity: 0; }}
-    }}
-    @keyframes titlePop {{
-        0% {{ opacity: 0; transform: translateX(-50%) scale(0.84); }}
-        100% {{ opacity: 1; transform: translateX(-50%) scale(1); }}
-    }}
-    @keyframes celebrationFadeOut {{
-        0%, 78% {{ opacity: 1; }}
-        100% {{ opacity: 0; visibility: hidden; }}
-    }}
-    .c1 {{ left: 4%; background:#ffd166; animation-duration: 6.8s; animation-delay: .1s; }}
-    .c2 {{ left: 8%; background:#ef476f; animation-duration: 7.6s; animation-delay: .6s; }}
-    .c3 {{ left: 13%; background:#06d6a0; animation-duration: 6.9s; animation-delay: .2s; }}
-    .c4 {{ left: 18%; background:#118ab2; animation-duration: 8.1s; animation-delay: .9s; }}
-    .c5 {{ left: 23%; background:#ffd60a; animation-duration: 7.2s; animation-delay: .4s; }}
-    .c6 {{ left: 27%; background:#f72585; animation-duration: 7.9s; animation-delay: .0s; }}
-    .c7 {{ left: 31%; background:#4dabf7; animation-duration: 6.7s; animation-delay: .7s; }}
-    .c8 {{ left: 36%; background:#b8f2e6; animation-duration: 7.5s; animation-delay: .3s; }}
-    .c9 {{ left: 41%; background:#ff9f1c; animation-duration: 8.4s; animation-delay: .5s; }}
-    .c10 {{ left: 46%; background:#e9ff70; animation-duration: 6.6s; animation-delay: .8s; }}
-    .c11 {{ left: 51%; background:#ff006e; animation-duration: 8.0s; animation-delay: .2s; }}
-    .c12 {{ left: 56%; background:#8338ec; animation-duration: 7.0s; animation-delay: .6s; }}
-    .c13 {{ left: 61%; background:#3a86ff; animation-duration: 8.2s; animation-delay: .1s; }}
-    .c14 {{ left: 66%; background:#fb5607; animation-duration: 7.3s; animation-delay: .9s; }}
-    .c15 {{ left: 71%; background:#80ed99; animation-duration: 6.8s; animation-delay: .3s; }}
-    .c16 {{ left: 76%; background:#ffd166; animation-duration: 7.8s; animation-delay: .7s; }}
-    .c17 {{ left: 81%; background:#ef476f; animation-duration: 6.9s; animation-delay: .4s; }}
-    .c18 {{ left: 85%; background:#06d6a0; animation-duration: 8.3s; animation-delay: .1s; }}
-    .c19 {{ left: 89%; background:#4dabf7; animation-duration: 7.4s; animation-delay: .8s; }}
-    .c20 {{ left: 93%; background:#ffd60a; animation-duration: 8.0s; animation-delay: .5s; }}
-    .c21 {{ left: 16%; background:#ff595e; animation-duration: 6.5s; animation-delay: 1.1s; }}
-    .c22 {{ left: 44%; background:#8ac926; animation-duration: 7.1s; animation-delay: 1.0s; }}
-    .c23 {{ left: 68%; background:#1982c4; animation-duration: 6.7s; animation-delay: 1.2s; }}
-    .c24 {{ left: 96%; background:#ffca3a; animation-duration: 7.6s; animation-delay: 1.1s; }}
-    .f1 {{ left: 12%; top: 18%; animation-delay: .1s; }}
-    .f2 {{ left: 78%; top: 20%; animation-delay: .45s; }}
-    .f3 {{ left: 31%; top: 33%; animation-delay: .9s; }}
-    .f4 {{ left: 61%; top: 39%; animation-delay: 1.25s; }}
-    .f5 {{ left: 49%; top: 18%; animation-delay: 1.65s; }}
-    .f6 {{ left: 88%; top: 48%; animation-delay: 2.05s; }}
-    .f7 {{ left: 18%; top: 52%; animation-delay: 2.45s; }}
-    </style>
-    <div class="celebration-overlay">
-        <div class="celebration-title">🎆 Celebració final de la Porra Mundial 🎊</div>
-        {confeti}
-        {fireworks}
-    </div>
-    """, unsafe_allow_html=True)
-
-
 SNAPSHOT_CURRENT_FILE = "ranking_snapshot_current.csv"
 SNAPSHOT_DISPLAY_FILE = "ranking_snapshot_display.csv"
 SNAPSHOT_META_FILE = "ranking_snapshot_meta.json"
 
-
-# --------------------------------------------------
-# V11.4.7 · CERIMÒNIA CELEBRATION DELUXE
-# --------------------------------------------------
-def mostrar_ceremonia_celebration_deluxe(df_ranking, num_participants):
-    """V11.4.8: cerimònia visible dins un component HTML propi, amb confeti i focs artificials reals."""
-    if df_ranking.empty:
-        return
-
-    if not st.session_state.get("celebracio_deluxe_v1148_mostrada", False):
-        st.session_state["celebracio_deluxe_v1148_mostrada"] = True
-        st.balloons()
-
-    df_final = df_ranking.copy().sort_values("Punts", ascending=False).reset_index(drop=True)
-    guanyador = df_final.iloc[0]
-    segon = df_final.iloc[1] if len(df_final) > 1 else None
-    tercer = df_final.iloc[2] if len(df_final) > 2 else None
-
-    def esc(valor):
-        return html_lib.escape(str(valor))
-
-    top_cards = []
-    for medalla, row in [("🥇", guanyador), ("🥈", segon), ("🥉", tercer)]:
-        if row is None:
-            continue
-        top_cards.append(
-            "<div class='podium-card'>"
-            f"<div class='medal'>{medalla}</div>"
-            f"<div class='podium-name'>{esc(row['Participant'])}</div>"
-            f"<div class='podium-points'>{float(row['Punts']):.1f} punts</div>"
-            "</div>"
-        )
-    top_html = "".join(top_cards)
-
-    winner = esc(guanyador["Participant"])
-    points = f"{float(guanyador['Punts']):.1f}"
-    participants = str(num_participants)
-
-    html_template = """
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset='utf-8'>
-<style>
-html, body { margin: 0; padding: 0; background: transparent; font-family: Inter, Montserrat, Arial, sans-serif; overflow: hidden; }
-.stage {
-  position: relative;
-  width: 100%;
-  height: 700px;
-  overflow: hidden;
-  border-radius: 32px;
-  color: #fff;
-  background:
-    radial-gradient(circle at 12% 12%, rgba(255, 214, 10, .45), transparent 24%),
-    radial-gradient(circle at 86% 16%, rgba(247, 37, 133, .35), transparent 26%),
-    radial-gradient(circle at 50% 92%, rgba(77, 171, 247, .32), transparent 30%),
-    linear-gradient(135deg, rgba(4, 18, 34, .99), rgba(7, 56, 102, .97) 48%, rgba(15, 113, 201, .92));
-  border: 1px solid rgba(255,255,255,.24);
-  box-shadow: 0 22px 60px rgba(0,0,0,.38);
-}
-.stage:before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(120deg, transparent, rgba(255,255,255,.12), transparent);
-  animation: shine 4.6s ease-in-out infinite;
-}
-canvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; }
-.content { position: relative; z-index: 4; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 28px; box-sizing: border-box; }
-.kicker { color: #fff1a8; text-transform: uppercase; font-size: clamp(15px, 2vw, 22px); font-weight: 1000; letter-spacing: 5px; }
-.title { margin-top: 10px; font-weight: 1000; letter-spacing: -2px; line-height: .92; font-size: clamp(42px, 7vw, 96px); text-shadow: 0 8px 30px rgba(0,0,0,.50); animation: titlePop 1.1s cubic-bezier(.2,.9,.2,1) both; }
-.winner { margin-top: 28px; color: #fff1a8; font-weight: 1000; line-height: .98; font-size: clamp(36px, 6vw, 80px); text-shadow: 0 8px 30px rgba(0,0,0,.45); animation: pulse 2.1s ease-in-out infinite; }
-.points { margin-top: 12px; font-size: clamp(26px, 3.4vw, 44px); font-weight: 1000; }
-.ribbon { margin: 22px auto 12px auto; color: #fff1a8; font-size: clamp(20px, 3vw, 34px); font-weight: 1000; letter-spacing: 4px; padding: 12px 20px; border-top: 2px solid rgba(255,241,168,.65); border-bottom: 2px solid rgba(255,241,168,.65); }
-.meta { padding: 11px 18px; border-radius: 999px; background: rgba(255,255,255,.13); border: 1px solid rgba(255,255,255,.22); font-weight: 850; color: rgba(255,255,255,.9); }
-.podium { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; width: min(920px, 100%); margin-top: 22px; }
-.podium-card { border-radius: 22px; padding: 16px; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.24); backdrop-filter: blur(8px); }
-.medal { font-size: 36px; }
-.podium-name { margin-top: 6px; font-size: 20px; font-weight: 950; line-height: 1.1; }
-.podium-points { margin-top: 5px; color: #fff1a8; font-weight: 900; }
-.firework { position: absolute; width: 8px; height: 8px; border-radius: 50%; background: #fff1a8; opacity: 0; z-index: 2; box-shadow: 0 -34px #ffd60a, 0 34px #4dabf7, 34px 0 #ff6b6b, -34px 0 #06d6a0, 24px 24px #f72585, -24px 24px #b8f2e6, 24px -24px #ff9f1c, -24px -24px #90dbf4; animation: explode 2.4s ease-out infinite; }
-.f1 { left: 10%; top: 16%; animation-delay: .1s; } .f2 { left: 80%; top: 18%; animation-delay: .45s; } .f3 { left: 25%; top: 42%; animation-delay: .9s; } .f4 { left: 65%; top: 44%; animation-delay: 1.25s; }
-.f5 { left: 46%; top: 13%; animation-delay: 1.65s; } .f6 { left: 88%; top: 56%; animation-delay: 2.05s; } .f7 { left: 16%; top: 58%; animation-delay: 2.45s; } .f8 { left: 54%; top: 60%; animation-delay: 2.85s; }
-@keyframes explode { 0% { transform: scale(.25); opacity: 0; } 18% { opacity: 1; } 55% { transform: scale(1.3); opacity: 1; } 100% { transform: scale(2.1); opacity: 0; } }
-@keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.025); } }
-@keyframes titlePop { 0% { opacity:0; transform: translateY(20px) scale(.94); } 100% { opacity:1; transform: translateY(0) scale(1); } }
-@keyframes shine { 0% { transform: translateX(-120%); } 100% { transform: translateX(120%); } }
-@media (max-width: 900px) { .stage { height: 840px; } .podium { grid-template-columns: 1fr; } }
-</style>
-</head>
-<body>
-<div class='stage'>
-  <canvas id='confetti'></canvas>
-  <span class='firework f1'></span><span class='firework f2'></span><span class='firework f3'></span><span class='firework f4'></span>
-  <span class='firework f5'></span><span class='firework f6'></span><span class='firework f7'></span><span class='firework f8'></span>
-  <div class='content'>
-    <div class='kicker'>Cerimònia de clausura</div>
-    <div class='title'>PORRA MUNDIAL 2026</div>
-    <div class='winner'>__WINNER__</div>
-    <div class='points'>__POINTS__ punts</div>
-    <div class='ribbon'>════════ WINNER 2026 ════════</div>
-    <div class='meta'>🥇 1a posició · __PARTICIPANTS__ participants · Celebració final</div>
-    <div class='podium'>__TOPHTML__</div>
-  </div>
-</div>
-<script>
-const canvas = document.getElementById('confetti');
-const ctx = canvas.getContext('2d');
-let W, H;
-function resize(){ W = canvas.width = canvas.offsetWidth; H = canvas.height = canvas.offsetHeight; }
-window.addEventListener('resize', resize); resize();
-const colors = ['#ffd166','#ef476f','#06d6a0','#118ab2','#f72585','#4dabf7','#ff9f1c','#e9ff70','#8338ec','#ff006e'];
-const pieces = Array.from({length: 170}, () => ({
-  x: Math.random() * W,
-  y: -Math.random() * H,
-  w: 6 + Math.random() * 9,
-  h: 10 + Math.random() * 16,
-  c: colors[Math.floor(Math.random() * colors.length)],
-  s: 1.4 + Math.random() * 3.8,
-  r: Math.random() * Math.PI,
-  vr: (Math.random() - .5) * .22,
-  drift: (Math.random() - .5) * 1.2
-}));
-function draw(){
-  ctx.clearRect(0,0,W,H);
-  for(const p of pieces){
-    p.y += p.s; p.x += p.drift; p.r += p.vr;
-    if(p.y > H + 30){ p.y = -30; p.x = Math.random() * W; }
-    if(p.x < -30) p.x = W + 30; if(p.x > W + 30) p.x = -30;
-    ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.r); ctx.fillStyle=p.c; ctx.fillRect(-p.w/2,-p.h/2,p.w,p.h); ctx.restore();
-  }
-  requestAnimationFrame(draw);
-}
-draw();
-</script>
-</body>
-</html>
-"""
-    html_doc = (html_template
-        .replace("__WINNER__", winner)
-        .replace("__POINTS__", points)
-        .replace("__PARTICIPANTS__", participants)
-        .replace("__TOPHTML__", top_html)
-    )
-    components.html(html_doc, height=730, scrolling=False)
 # --------------------------------------------------
 # CONFIGURACIÓ DE PUNTS MÀXIMS
 # --------------------------------------------------
@@ -1314,116 +1031,6 @@ def mostrar_dashboard_final_professional(df_ranking, df_departaments, df_porra, 
 # --------------------------------------------------
 # V11.4 · DASHBOARD PREMIUM DEL CAMPIÓ
 # --------------------------------------------------
-
-def es_nom_femeni_porres(nom):
-    primer = normalitzar_text(str(nom).split()[0]) if str(nom).strip() else ""
-    noms_femenins = {
-        "agustina", "brenda", "patri", "patricia", "jessica", "sonia", "lena", "veronica", "vero",
-        "maite", "montse", "sandra", "carmen", "elena", "nuria", "nouria", "maria", "laura",
-        "anna", "ana", "marta", "cristina", "tamara", "silvia", "sílvia", "meritxell", "beatriz"
-    }
-    return primer in noms_femenins
-
-def textos_genere_guanyador(nom):
-    # V11.4.5: textos neutres, sense detectar gènere per nom.
-    return {
-        "celebracio": "Número 1 de la Porra Mundial 2026",
-        "kicker": "1a posició absoluta",
-        "guanyador": "Lideratge final",
-        "campio": "en primera posició",
-        "segon": "2a posició",
-    }
-def trobar_imatge_ia(base_name):
-    candidats = []
-    for ext in ["", ".png", ".jpg", ".jpeg", ".webp"]:
-        candidats.append(base_name + ext)
-    # Compatibilitat si el fitxer s'ha pujat sense accents.
-    if "últims" in base_name:
-        for ext in ["", ".png", ".jpg", ".jpeg", ".webp"]:
-            candidats.append(base_name.replace("últims", "ultims") + ext)
-    for path in candidats:
-        if os.path.exists(path):
-            return path
-    return None
-
-def mostrar_bloc_imatge_ia(base_name, titol, subtitol="", placeholder=""):
-    path = trobar_imatge_ia(base_name)
-    if not path:
-        return
-    st.markdown(f"<div class='ai-poster-block'><div class='ai-poster-title'>{titol}</div></div>", unsafe_allow_html=True)
-    st.image(path, use_container_width=True)
-    st.markdown("</div>", unsafe_allow_html=True)
-
-def trobar_imatge_resum_final():
-    for base_name in ["imatge_final", "imatge_resum_final", "imatge_partit_final", "imatge_resum_partit"]:
-        path = trobar_imatge_ia(base_name)
-        if path:
-            return path
-    return None
-
-def mostrar_bloc_resum_visual_final():
-    path = trobar_imatge_resum_final()
-    st.markdown("<div class='ai-poster-block'><div class='ai-poster-title'>🎨 Resum visual de la final</div></div>", unsafe_allow_html=True)
-    if path:
-        st.image(path, use_container_width=True)
-    else:
-        st.markdown("<div class='ai-placeholder'>Espai reservat per al resum visual de la final</div>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
-
-def obtenir_moviments_jornada(df_ranking):
-    if df_ranking.empty or "Canvi posició" not in df_ranking.columns:
-        return None, None
-    tmp = df_ranking.copy()
-    tmp["Canvi posició"] = pd.to_numeric(tmp["Canvi posició"], errors="coerce").fillna(0)
-    guanya = tmp.sort_values("Canvi posició", ascending=False).iloc[0]
-    perd = tmp.sort_values("Canvi posició", ascending=True).iloc[0]
-    return guanya, perd
-
-def obtenir_premis_especials(df_ranking, df_departaments, df_porra, df_resultats_display):
-    premis = []
-    encerts = preparar_qui_la_va_clavar(df_porra, df_resultats_display) if 'preparar_qui_la_va_clavar' in globals() else pd.DataFrame()
-    if not encerts.empty and "Distància" in encerts.columns:
-        exactes = encerts[pd.to_numeric(encerts["Distància"], errors="coerce").fillna(999) == 0]
-        if not exactes.empty:
-            noms = " · ".join(exactes["Participant"].astype(str).tolist())
-            resultat = exactes.iloc[0].get("Resultat real", "Resultat exacte")
-            premis.append(("🎯 Resultat final encertat", noms, f"Resultat exacte: {resultat}"))
-        else:
-            premis.append(("🎯 Resultat final encertat", "Cap encertant", "Cap participant ha clavat el marcador exacte"))
-    else:
-        premis.append(("🎯 Resultat final encertat", "Pendent", "Falta resultat real o prediccions numèriques"))
-
-    if "Canvi posició" in df_ranking.columns:
-        tmp = df_ranking.copy()
-        tmp["Canvi posició"] = pd.to_numeric(tmp["Canvi posició"], errors="coerce").fillna(0)
-        max_pujada = tmp["Canvi posició"].max()
-        if max_pujada > 0:
-            noms_pujada = " · ".join(tmp[tmp["Canvi posició"] == max_pujada]["Participant"].astype(str).tolist())
-            premis.append(("🔥 Sprint final", noms_pujada, f"+{int(max_pujada)} posicions"))
-        else:
-            premis.append(("🔥 Sprint final", "Sense pujades", "Cap participant ha guanyat posicions"))
-
-        max_baixada = tmp["Canvi posició"].min()
-        if max_baixada < 0:
-            noms_baixada = " · ".join(tmp[tmp["Canvi posició"] == max_baixada]["Participant"].astype(str).tolist())
-            premis.append(("💥 Punxada final", noms_baixada, f"{int(max_baixada)} posicions"))
-        else:
-            premis.append(("💥 Punxada final", "Sense baixades", "Cap participant ha perdut posicions"))
-    else:
-        premis.append(("🔥 Sprint final", "Pendent", "No hi ha columna de canvi de posició"))
-        premis.append(("💥 Punxada final", "Pendent", "No hi ha columna de canvi de posició"))
-
-    if df_departaments is not None and not df_departaments.empty and "Departament" in df_ranking.columns:
-        dep_lider = df_departaments.iloc[0]["Departament"]
-        candidats = df_ranking[df_ranking["Departament"].astype(str) == str(dep_lider)]
-        if not candidats.empty:
-            millor_dep = candidats.sort_values("Punts", ascending=False).iloc[0]
-            premis.append(("🏢 Orgull del Departament", millor_dep["Participant"], f"Millor del departament {dep_lider}"))
-        else:
-            premis.append(("🏢 Orgull del Departament", str(dep_lider), "Departament amb millor puntuació"))
-    else:
-        premis.append(("🏢 Orgull del Departament", "Pendent", "Sense departaments configurats"))
-    return premis
 def obtenir_resultat_real_final(df_resultats_display):
     valor = primer_valor_o_pendent(df_resultats_display, "Resultat Final") if df_resultats_display is not None else "Pendent"
     marcador = extreure_marcador_final(valor) if 'extreure_marcador_final' in globals() else None
@@ -1488,8 +1095,9 @@ def generar_frase_final(df_ranking, df_departaments, df_porra, df_resultats_disp
     avg_arg = resum.get("avg_arg", 0) if isinstance(resum, dict) else 0
     dep_txt = ""
     if df_departaments is not None and not df_departaments.empty:
-        dep_txt = f" El departament amb millor puntuació ha estat {df_departaments.iloc[0]['Departament']} amb {float(df_departaments.iloc[0]['Mitjana_punts']):.1f} punts de mitjana."
-    return f"{guanyador['Participant']} queda en primera posició de la Porra Mundial amb {punts:.1f} punts. El resultat real de la final és {resultat_real}; el marcador més apostat era {resultat_top}. La porra projectava una mitjana de gols de {avg_esp:.2f} per Espanya i {avg_arg:.2f} per Argentina.{dep_txt}"
+        dep_txt = f" El departament campió ha estat {df_departaments.iloc[0]['Departament']} amb {float(df_departaments.iloc[0]['Mitjana_punts']):.1f} punts de mitjana."
+    return f"{guanyador['Participant']} es proclama campió de la Porra Mundial amb {punts:.1f} punts. El resultat real de la final és {resultat_real}; el marcador més apostat era {resultat_top}. La porra projectava una mitjana de gols de {avg_esp:.2f} per Espanya i {avg_arg:.2f} per Argentina.{dep_txt}"
+
 def mostrar_dashboard_campio_premium(df_ranking, df_departaments, df_porra, df_resultats_display):
     if df_ranking.empty:
         return
@@ -1498,7 +1106,6 @@ def mostrar_dashboard_campio_premium(df_ranking, df_departaments, df_porra, df_r
     segon = df_final.iloc[1] if len(df_final) > 1 else None
     tercer = df_final.iloc[2] if len(df_final) > 2 else None
     diff_seg = float(guanyador["Punts"] - segon["Punts"]) if segon is not None else 0.0
-    txt = textos_genere_guanyador(guanyador["Participant"])
 
     podi_cards = []
     for medalla, row in [("🥇", guanyador), ("🥈", segon), ("🥉", tercer)]:
@@ -1514,6 +1121,31 @@ def mostrar_dashboard_campio_premium(df_ranking, df_departaments, df_porra, df_r
         )
     podi_html = "".join(podi_cards)
 
+    df_tend, resum = preparar_tendencia_resultat_final(df_porra) if 'preparar_tendencia_resultat_final' in globals() else (pd.DataFrame(), {})
+    esp = int(resum.get("espanya", 0)) if isinstance(resum, dict) else 0
+    arg = int(resum.get("argentina", 0)) if isinstance(resum, dict) else 0
+    emp = int(resum.get("empat", 0)) if isinstance(resum, dict) else 0
+    res_top = resum.get("resultat_top", "Pendent") if isinstance(resum, dict) else "Pendent"
+    res_top_total = int(resum.get("resultat_top_total", 0)) if isinstance(resum, dict) else 0
+
+    rem = obtenir_remuntada_destacada(df_final)
+    rem_html = "Sense remuntada destacada"
+    rem_detail = "No hi ha canvis positius registrats en l'última actualització."
+    if rem is not None:
+        rem_html = f"{rem['Participant']}"
+        rem_detail = f"+{int(rem['Canvi posició'])} posicions"
+
+    fanalet = df_final.iloc[-1]
+    fanalet_html = f"{fanalet['Participant']}"
+    fanalet_detail = f"{float(fanalet['Punts']):.1f} punts"
+
+    dep_title = "Pendent"
+    dep_detail = "Afegeix departaments per activar aquest bloc."
+    if df_departaments is not None and not df_departaments.empty:
+        dep = df_departaments.iloc[0]
+        dep_title = f"{dep['Departament']}"
+        dep_detail = f"{float(dep['Mitjana_punts']):.1f} punts de mitjana · {int(dep['Participants'])} participants"
+
     resultat_real = primer_valor_o_pendent(df_resultats_display, "Resultat Final") if df_resultats_display is not None else "Pendent"
     campio_real = afegir_bandera(primer_valor_o_pendent(df_resultats_display, "Campió")) if df_resultats_display is not None else "Pendent"
     mvp_real = primer_valor_o_pendent(df_resultats_display, "MVP") if df_resultats_display is not None else "Pendent"
@@ -1524,87 +1156,45 @@ def mostrar_dashboard_campio_premium(df_ranking, df_departaments, df_porra, df_r
     html = (
         "<div class='champion-wrap'>"
         "<div class='champion-title'>"
-        f"<div><h2>🏆 {txt['celebracio']}</h2><p>{txt['guanyador']} de la Porra Mundial 2026</p></div>"
+        "<div><h2>🏆 Celebració del campió</h2><p>Dashboard final premium de la Porra Mundial 2026</p></div>"
+        "<div class='champion-badge'>V11.4.2 · CLEAN FINAL MODE</div>"
         "</div>"
         "<div class='champion-grid'>"
         "<div class='champion-hero'>"
-        f"<div class='champion-kicker'>{txt['kicker']}</div>"
+        "<div class='champion-kicker'>Campió absolut</div>"
         f"<div class='champion-name'>{guanyador['Participant']}</div>"
         f"<div class='champion-points'>{float(guanyador['Punts']):.1f} punts</div>"
-        f"<div class='champion-diff'>+{diff_seg:.1f} respecte a la {txt['segon']}</div>"
+        f"<div class='champion-diff'>+{diff_seg:.1f} respecte al segon classificat</div>"
         "</div>"
         f"<div class='podium-grid'>{podi_html}</div>"
         "</div>"
         "<div class='premium-kpi-grid'>"
-        f"<div class='premium-kpi'><h3>🏆 Selecció guanyadora</h3><div class='big'>{campio_real}</div><div class='small'>Guanyadora del Mundial</div></div>"
-        f"<div class='premium-kpi'><h3>⭐ MVP</h3><div class='big'>{mvp_real}</div><div class='small'>Millor jugador</div></div>"
-        f"<div class='premium-kpi'><h3>⚽ Bota d'Or</h3><div class='big'>{bota_txt}</div><div class='small'>Màxim golejador</div></div>"
-        f"<div class='premium-kpi'><h3>🏁 Resultat final</h3><div class='big'>{resultat_real}</div><div class='small'>Marcador oficial</div></div>"
+        f"<div class='premium-kpi'><h3>🇪🇸 Victòria Espanya</h3><div class='big'>{esp}</div><div class='small'>apostes</div></div>"
+        f"<div class='premium-kpi'><h3>🇦🇷 Victòria Argentina</h3><div class='big'>{arg}</div><div class='small'>apostes</div></div>"
+        f"<div class='premium-kpi'><h3>🤝 Empat</h3><div class='big'>{emp}</div><div class='small'>apostes</div></div>"
+        f"<div class='premium-kpi'><h3>🎯 Resultat més apostat</h3><div class='big'>{res_top}</div><div class='small'>{res_top_total} participants</div></div>"
         "</div>"
+        "<div class='story-grid'>"
+        f"<div class='story-card'><h3>🚀 Remuntada del Mundial</h3><div class='hero-text'>{rem_html}</div><div class='detail'>{rem_detail}</div></div>"
+        f"<div class='story-card'><h3>🔦 Fanalet vermell</h3><div class='hero-text'>{fanalet_html}</div><div class='detail'>{fanalet_detail}</div></div>"
+        f"<div class='story-card'><h3>🏢 Departament campió</h3><div class='hero-text'>{dep_title}</div><div class='detail'>{dep_detail}</div></div>"
+        "</div>"
+        "<div class='story-grid'>"
+        f"<div class='story-card'><h3>🏆 Campió real</h3><div class='hero-text'>{campio_real}</div><div class='detail'>Resultat final: {resultat_real}</div></div>"
+        f"<div class='story-card'><h3>⭐ MVP</h3><div class='hero-text'>{mvp_real}</div><div class='detail'>Moment clau del torneig</div></div>"
+        f"<div class='story-card'><h3>⚽ Bota d'Or</h3><div class='hero-text'>{bota_txt}</div><div class='detail'>Màxim golejador registrat</div></div>"
+        "</div>"
+        f"<div class='final-phrase'>“{frase}”</div>"
         "</div>"
     )
     st.markdown(html, unsafe_allow_html=True)
 
-    mostrar_bloc_imatge_ia(
-        "imatge_campions",
-        "🥇🥈🥉 Els tres primers classificats"
-    )
-
-    dept_cards = []
-    medalles_dep = ["🥇", "🥈", "🥉"]
-    if df_departaments is not None and not df_departaments.empty:
-        for i in range(3):
-            if len(df_departaments) > i:
-                dep = df_departaments.iloc[i]
-                dept_cards.append(
-                    "<div class='story-card'>"
-                    f"<h3>{medalles_dep[i]} Departament TOP {i + 1}</h3>"
-                    f"<div class='hero-text'>{dep['Departament']}</div>"
-                    f"<div class='detail'>{float(dep['Mitjana_punts']):.1f} punts de mitjana · {int(dep['Participants'])} participants</div>"
-                    "</div>"
-                )
-            else:
-                dept_cards.append(
-                    "<div class='story-card'><h3>🏢 Departament TOP</h3><div class='hero-text'>Pendent</div><div class='detail'>Sense dades</div></div>"
-                )
-    else:
-        dept_cards = [
-            "<div class='story-card'><h3>🏢 Departament TOP</h3><div class='hero-text'>Pendent</div><div class='detail'>Sense departaments configurats</div></div>"
-        ] * 3
-
-    html2 = (
-        "<div class='champion-wrap'>"
-        "<div class='champion-title'><div><h2>🏢 Podi de departaments</h2><p>Els tres departaments amb millor puntuació mitjana</p></div></div>"
-        f"<div class='story-grid'>{''.join(dept_cards)}</div>"
-        "</div>"
-    )
-    st.markdown(html2, unsafe_allow_html=True)
-
-    final_html = (
-        "<div class='champion-wrap'>"
-        "<div class='champion-title'><div><h2>🏁 Final del Mundial</h2><p>Resultat oficial de la final</p></div></div>"
-        "<div style='border-radius:28px;padding:34px 22px;text-align:center;background:linear-gradient(135deg,rgba(255,215,0,.25),rgba(255,255,255,.12));border:1px solid rgba(255,255,255,.24);'>"
-        "<div style='font-size:clamp(22px,3vw,36px);font-weight:950;color:#fff1a8;text-transform:uppercase;letter-spacing:2px;'>Marcador final</div>"
-        f"<div style='font-size:clamp(54px,9vw,122px);font-weight:1000;line-height:.95;color:white;text-shadow:0 8px 30px rgba(0,0,0,.42);margin-top:12px;'>{resultat_real}</div>"
-        "</div>"
-        "</div>"
-    )
-    st.markdown(final_html, unsafe_allow_html=True)
-    mostrar_bloc_resum_visual_final()
-
-    premis = obtenir_premis_especials(df_final, df_departaments, df_porra, df_resultats_display)
-    premis_html = "<div class='champion-wrap'><div class='champion-title'><div><h2>🎖 Premis especials</h2></div></div><div class='special-grid'>"
-    for titol, nom, detall in premis:
-        premis_html += f"<div class='special-card'><h3>{titol}</h3><div class='special-name'>{nom}</div><div class='special-detail'>{detall}</div></div>"
-    premis_html += "</div></div>"
-    st.markdown(premis_html, unsafe_allow_html=True)
-
     encerts = preparar_qui_la_va_clavar(df_porra, df_resultats_display)
     if not encerts.empty:
-        exactes = encerts[pd.to_numeric(encerts["Distància"], errors="coerce").fillna(999) == 0]
-        if not exactes.empty:
-            st.subheader("🎯 Resultat de la final encertat")
-            st.dataframe(exactes[["Participant", "Resultat apostat", "Estat"]], use_container_width=True, hide_index=True)
+        st.subheader("🎯 Qui la va clavar?")
+        st.dataframe(encerts.head(15), use_container_width=True, hide_index=True, column_config={
+            "Distància": st.column_config.NumberColumn("Distància", format="%d"),
+        })
 # --------------------------------------------------
 # ESTILS + FONS
 # --------------------------------------------------
@@ -1654,7 +1244,7 @@ st.markdown(
 @media (max-width: 1100px) {{ .prefinal-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }} .final-grid {{ grid-template-columns: 1fr; }} }}
 
 .final-trend-grid {{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1.25rem; align-items: stretch; margin-bottom: 1rem; }}
-.final-trend-card {{ min-height: 280px !important; height: 280px !important; margin: 0 !important; padding: 28px 22px !important; justify-content: center !important; gap: 18px !important; overflow: visible !important; }}
+.final-trend-card {{ min-height: 214px !important; height: 214px !important; margin: 0 !important; padding: 22px 18px !important; justify-content: center !important; gap: 16px !important; overflow: visible !important; }}
 .final-trend-card h3 {{ margin: 0 !important; min-height: 38px; white-space: normal !important; display: flex; justify-content: center; align-items: center; text-align: center; }}
 .final-trend-card h1 {{ margin: 0 !important; line-height: 1.05 !important; white-space: normal !important; display: flex; justify-content: center; align-items: center; text-align: center; }}
 .final-trend-card .trend-sub {{ font-size: 16px; font-weight: 800; opacity: 0.98; }}
@@ -1729,58 +1319,6 @@ st.markdown(
 .final-phrase {{ margin-top: 18px; border-radius: 22px; padding: 18px 20px; background: rgba(255,255,255,0.16); border: 1px solid rgba(255,255,255,0.24); color: white; font-size: 18px; font-weight: 800; line-height: 1.35; }}
 @media (max-width: 1100px) {{ .champion-grid, .story-grid {{ grid-template-columns: 1fr; }} .premium-kpi-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }} .champion-title {{ flex-direction: column; }} }}
 @media (max-width: 720px) {{ .premium-kpi-grid {{ grid-template-columns: 1fr; }} .podium-card {{ grid-template-columns: 44px 1fr; }} .podium-score {{ grid-column: 2; }} }}
-
-/* ========================= V11.4.3 AI + FINAL CELEBRATION ========================= */
-.ai-poster-block {{
-    margin: 22px 0 24px 0;
-    padding: 18px;
-    border-radius: 26px;
-    background: rgba(255,255,255,0.12);
-    border: 1px solid rgba(255,255,255,0.24);
-    box-shadow: 0 14px 34px rgba(0,0,0,0.24);
-}}
-.ai-poster-title {{
-    color: white;
-    font-size: clamp(22px, 2.8vw, 34px);
-    font-weight: 950;
-    margin: 0 0 8px 0;
-}}
-.ai-poster-subtitle {{
-    color: rgba(255,255,255,0.82);
-    font-weight: 750;
-    margin-bottom: 14px;
-}}
-.ai-placeholder {{
-    min-height: 260px;
-    border-radius: 22px;
-    border: 2px dashed rgba(255,255,255,0.35);
-    background: rgba(255,255,255,0.09);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    color: rgba(255,255,255,0.82);
-    font-weight: 900;
-    padding: 24px;
-}}
-.special-grid {{
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 14px;
-    margin-top: 18px;
-}}
-.special-card {{
-    border-radius: 22px;
-    padding: 18px;
-    background: rgba(255,255,255,0.12);
-    border: 1px solid rgba(255,255,255,0.22);
-    min-height: 150px;
-}}
-.special-card h3 {{ color: white !important; margin: 0 0 10px 0; font-size: 16px; }}
-.special-card .special-name {{ color: #fff1a8; font-size: 22px; font-weight: 1000; line-height: 1.05; }}
-.special-card .special-detail {{ color: rgba(255,255,255,0.84); font-weight: 750; margin-top: 8px; }}
-@media (max-width: 1100px) {{ .special-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }} }}
-@media (max-width: 720px) {{ .special-grid {{ grid-template-columns: 1fr; }} }}
 @media (max-width: 768px) {{ .block-container {{ padding-left: 0.8rem; padding-right: 0.8rem; border-radius: 16px; }} .card-grid-2, .card-grid-3, .card-grid-4 {{ grid-template-columns: 1fr; }} .card {{ min-height: 140px; }} .card h3, .card h1, .card p {{ white-space: normal; }} }}
     </style>
     """, unsafe_allow_html=True
@@ -1826,16 +1364,45 @@ st.markdown(f"<div class='card-grid-3'><div class='card darkcard'><h3>🕒 Dades
 # --------------------------------------------------
 # V11.4.2 · DASHBOARD PREMIUM NET
 # --------------------------------------------------
-mostrar_ceremonia_celebration_deluxe(df_ranking, num_participants)
-
 mostrar_dashboard_campio_premium(df_ranking, df_departaments, df_porra, preparar_taula_buida(df_resultats))
 
 mostrar_estadistiques_prefinal(df_porra)
 mostrar_prediccions_resultat_final(df_porra)
 
 # --------------------------------------------------
-# MOVIMENTS DESTACATS RETIRATS A LA V11.4.9
+# MOVIMENTS DESTACATS (PUJADES I BAIXADES)
 # --------------------------------------------------
+if "Canvi posició" in df_ranking.columns:
+    max_p = df_ranking["Canvi posició"].max()
+    min_p = df_ranking["Canvi posició"].min()
+    
+    if pd.notna(max_p) and pd.notna(min_p) and (max_p > 0 or min_p < 0):
+        st.write("### 🎢 La muntanya russa de posicions")
+        html_mov = "<div class='card-grid-2'>"
+        
+        def format_noms(llista):
+            noms_reduits = [reduir_nom(nom) for nom in llista]
+            if len(noms_reduits) > 7:
+                return " · ".join(noms_reduits[:6]) + "..."
+            return " · ".join(noms_reduits)
+        
+        if max_p > 0:
+            pujadors = df_ranking[df_ranking["Canvi posició"] == max_p]["Participant"].tolist()
+            noms_p = format_noms(pujadors)
+            html_mov += f"<div class='card greencard'><h3>🚀 La gran remuntada</h3><h1 style='font-size: clamp(16px, 2vw, 24px); white-space: normal; line-height: 1.2; word-break: break-word;'>{noms_p}</h1><p>+{int(max_p)} posicions d'una tacada! 🔥</p></div>"
+        else:
+            html_mov += "<div class='card greencard'><h3>🚀 La gran remuntada</h3><h1>-</h1><p>Ningú ha guanyat posicions encara 🤷‍♂️</p></div>"
+            
+        if min_p < 0:
+            baixadors = df_ranking[df_ranking["Canvi posició"] == min_p]["Participant"].tolist()
+            noms_b = format_noms(baixadors)
+            html_mov += f"<div class='card redcard'><h3>📉 Caiguda lliure</h3><h1 style='font-size: clamp(16px, 2vw, 24px); white-space: normal; line-height: 1.2; word-break: break-word;'>{noms_b}</h1><p>{int(min_p)} posicions avall... 🥶🚑</p></div>"
+        else:
+            html_mov += "<div class='card redcard'><h3>📉 Caiguda lliure</h3><h1>-</h1><p>Tothom manté el tipus 🧘‍♂️</p></div>"
+            
+        html_mov += "</div>"
+        st.markdown(html_mov, unsafe_allow_html=True)
+
 
 # --------------------------------------------------
 # PODI DE DEPARTAMENTS LÍDERS
